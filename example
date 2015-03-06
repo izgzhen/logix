@@ -1,0 +1,20 @@
+Type nat : set
+	| O
+	| S nat
+
+Ind plus : nat -> nat -> nat
+	| O x = x
+	| x O = x
+	| (S x) y = (S (plus x y))
+
+Def one = S O
+
+Prop simple_prop
+	if x : nat, plus x O = one
+	then x = one
+
+Prove simple_prop
+	intro x
+	apply plus
+	reflex
+	qed
