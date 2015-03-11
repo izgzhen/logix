@@ -7,10 +7,10 @@ import qualified Data.Map as M
 import Control.Monad.State
 
 data PropT = PropT [String] Formula deriving (Show, Eq)
-
 type Context = M.Map String PropT
-
 type Evaluator a = State Context a
+
+defaultContext = M.fromList [] :: M.Map String PropT
 
 lookUp :: String -> Evaluator Formula
 lookUp name = do
@@ -27,28 +27,35 @@ addAxiom tks = do
     where
         (name, args, body) = parseAxiom tks
 
-evaluate :: String -> Evaluator String
-evaluate str
-    | tk == TkKey Axiom = addAxiom tks >> return "Done"
+addTheorem :: [Token] -> Evaluator (PropT, String) -- Return the name of theorem
+addTheorem tks = do
+    let theorem@(name, args, body) = parseAxiom tks
+    return (PropT args body, name)
+
+applyTheorem :: Token -> [Token] -> Evaluator String
+applyTheorem = undefined
+-- applyTheorem (TkIdent name) tks = do
+-- applyTheorem _ _ = error "Error applying"
+
+evaluate :: String -> Maybe PropT-> Evaluator (Maybe String, Maybe String, Maybe PropT)
+evaluate str maybeProp
+    | tk == TkKey Axiom = addAxiom tks >> return (Nothing, Nothing, Nothing)
     | tk == TkKey Check = do
         let (TkIdent name) = head tks
         formula <- lookUp name
-        return $ show formula
+        return (Just $ show formula, Nothing, Nothing)
+    | tk == TkKey Theorem = do
+        (propCtx, name) <- addTheorem tks
+        return (Nothing, Just name, Just propCtx)
+    | isIndent tk = do
+        res <- applyTheorem tk tks
+        return (Just res, Nothing, Nothing)
     | otherwise = error "Error evaluate"
   where
     (tk:tks) = tokenize str
 
-exampleStr1 = "Axiom L1(p) : p -> p"
-exampleStr2 = "Axiom L1(p) : q -> p"
-
-defaultContext = M.fromList [] :: M.Map String PropT
-
-
-    -- print $ runState (evaluate $ tokenize exampleStr1) (M.fromList [])
-
-    -- putStrLn $ show formula
-
--- evaluate :: Tree -> Evaluator Double
+isIndent (TkIdent _) = True
+isIndent _ = False
 
 -- evaluate (SumNode op left right) = do
 --     lft <- evaluate left
