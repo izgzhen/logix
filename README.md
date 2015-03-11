@@ -1,0 +1,4 @@
+
+cabal dependencies:
+
+* haskeline

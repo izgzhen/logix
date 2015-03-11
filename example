@@ -2,6 +2,8 @@ Type nat : set
 	| O
 	| S nat
 
+Check O
+
 Ind plus : nat -> nat -> nat
 	| O x = x
 	| x O = x
@@ -10,8 +12,8 @@ Ind plus : nat -> nat -> nat
 Def one = S O
 
 Prop simple_prop
-	if x : nat, plus x O = one
-	then x = one
+	If x : nat, plus x O = one
+	Then x = one
 
 Prove simple_prop
 	intro x

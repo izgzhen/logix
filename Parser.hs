@@ -2,6 +2,33 @@ module Parser where
 import Tokenizer
 import qualified Data.Map as Map
 
+type Block = [(Int, String)]    -- Indentation Level and the line's content
+type TBlock = [(Int, [Token])]
+
+blocker :: Block -> [ Block ] -- From a whole "block"
+blocker [] = []
+blocker lns = b : blocker rest
+    where
+        headLn = head lns
+        (b', rest) = span (\ln -> fst ln /= 0) $ tail lns
+        b = headLn:b'
+
+process :: String -> [ Block ]
+process txt = blocker . map stripper $ filter (/= "") . lines $ txt
+
+constructBlock :: Block -> TBlock
+constructBlock block = map (\(i, str) -> (i, tokenize str)) block
+
+readTokens filename = do
+    text <- readFile filename
+    return $ map constructBlock $ process text
+
+stripper :: String -> (Int, String)
+stripper line = (tabs, stripped)
+    where
+        stripped = dropWhile (=='\t') line
+        tabs = length line - length stripped
+
 parseBlock :: TBlock -> String
 parseBlock blk@(x:xs) = parse blk
 	where
@@ -12,6 +39,7 @@ parseBlock blk@(x:xs) = parse blk
 			Def		-> show . parseDef
 			Prop	-> show . parseProp
 			Prove	-> show . parseProve
+			Check   -> show . parseCheck
 parseBlock [] = ""
 
 type Expr = [ Term ]
@@ -132,3 +160,8 @@ parseProve :: TBlock -> ProveSpec
 parseProve ((_, _:(TkIdent n):[]):xs) = ProveSpec n ss
 	where
 		ss = map (\(_, TkTac tac : body) -> (tac, map (\(TkIdent n) -> n) body)) xs
+
+data CheckSpec = CheckSpec Expr deriving(Show, Eq)
+
+parseCheck :: TBlock -> CheckSpec
+parseCheck ((_, (TkKey Check):ts):[]) = CheckSpec $ parseExpr ts
