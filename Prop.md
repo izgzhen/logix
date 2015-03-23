@@ -13,15 +13,15 @@ A basic example:
     > Check L1
     L1(p, q): p -> (q -> p)
     > Theorem id_rule(p): |- p -> p
-    id_rule > L1 p (p -> p)
+    id_rule > L1 p, (p -> p)
     S0: p -> ((p -> p) -> p)
     id_rule > L2 S0
     S1: (p -> ((p -> p) -> p)) -> ((p -> (p -> p)) -> (p -> p))
-    id_rule > mp S0 S1
+    id_rule > mp S0, S1
     S2: (p -> (p -> p)) -> (p -> p)
     id_rule > L1 p p
     S3: p -> (p -> p)
-    id_rule > mp S2 S3
+    id_rule > mp S2, S3
     S4: p -> p
     id_rule > qed S4
     Theorem proved, id_rule: |- p -> p
