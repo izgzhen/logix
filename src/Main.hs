@@ -16,18 +16,16 @@ main = runInputT defaultSettings $ loop defaultContext defaultPrompt Nothing
             case minput of
                 Nothing     -> return ()
                 Just "quit" -> return ()
+                Just "exit" -> return ()
+                Just ""     -> loop ctx prompt maybeProp
                 Just input  -> repl input ctx prompt maybeProp
 
         repl input ctx prompt maybeProp = do
-            if input == "exit" then do
-                outputStrLn "Exiting.."
-                return ()
-            else do
-                let ((maybeRes, maybePrompt, maybeProp'), ctx') = runState (evaluate input maybeProp) ctx
-                case maybeRes of
-                    Nothing  -> return ()
-                    Just res -> outputStrLn res
-                let prompt' = case maybePrompt of
-                        Nothing -> prompt
-                        Just p  -> p ++ " > "
-                loop ctx' prompt' maybeProp'
+                    let ((maybeRes, maybePrompt, maybeProp'), ctx') = runState (evaluate input maybeProp) ctx
+                    case maybeRes of
+                        Nothing  -> return ()
+                        Just res -> outputStrLn res
+                    let prompt' = case maybePrompt of
+                            Nothing -> prompt
+                            Just p  -> p ++ " > "
+                    loop ctx' prompt' maybeProp'

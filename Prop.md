@@ -8,23 +8,39 @@ Comparing to a Coq-like PA, this has a much simple syntax. To simplify the probl
 A basic example:
 
     > Axiom L1(p, q): p -> (q -> p)
-    > Axiom L2(p, q, r): (p -> (q -> r)) -> ((p -> r) -> (p -> r))
+    > Axiom L2(p, q, r): (p -> (q -> r)) -> ((p -> q) -> (p -> r))
     > Axiom L3(p, q): (!p -> !q) -> (q -> p)
     > Check L1
     L1(p, q): p -> (q -> p)
     > Theorem id_rule(p): |- p -> p
-    id_rule > L1 p (p -> p)
+    id_rule > L1 p, (p -> p)
     S0: p -> ((p -> p) -> p)
-    id_rule > L2 S0
+    id_rule > L2 p, (p -> p), p
     S1: (p -> ((p -> p) -> p)) -> ((p -> (p -> p)) -> (p -> p))
-    id_rule > mp S0 S1
+    id_rule > mp S0, S1
     S2: (p -> (p -> p)) -> (p -> p)
-    id_rule > L1 p p
+    id_rule > L1 p, p
     S3: p -> (p -> p)
-    id_rule > mp S2 S3
+    id_rule > mp S2, S3
     S4: p -> p
     id_rule > qed S4
     Theorem proved, id_rule: |- p -> p
+
+The input version:
+
+    Axiom L1(p, q): p -> (q -> p)
+    Axiom L2(p, q, r): (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+    Axiom L3(p, q): (!p -> !q) -> (q -> p)
+    Theorem id_rule(p): |- p -> p
+    Check L1
+    Check L2
+    Check L3
+    L1 p, (p -> p)
+    L2 p, (p -> p), p
+    mp S0, S1
+    L1 p, p
+    mp S2, S3
+    qed S4
 
 ## Internals
 A much simple parser is required, which could be built on top of a compatible tokenizer as the non-existing PA.
