@@ -23,7 +23,7 @@ A basic example:
     S3: p -> (p -> p)
     id_rule > mp S2, S3
     S4: p -> p
-    id_rule > qed S4
+    id_rule > qed
     Theorem proved, id_rule: |- p -> p
 
 The input version:
@@ -40,7 +40,7 @@ The input version:
     mp S0, S1
     L1 p, p
     mp S2, S3
-    qed S4
+    qed
 
 ## Internals
 A much simple parser is required, which could be built on top of a compatible tokenizer as the non-existing PA.

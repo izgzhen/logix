@@ -53,14 +53,17 @@ unique = map (\(x:_) -> x) . group
 
 extractArgs :: Formula -> [String]
 extractArgs Empty = []
-extractArgs (Imply f1 f2) = extractArgs f1 ++ extractArgs f2
+extractArgs (Imply f1 f2) = unique $ extractArgs f1 ++ extractArgs f2
 extractArgs (Term str) = [str]
+
+formulaToProp :: Formula -> PropT
+formulaToProp f = PropT (extractArgs f) f
 
 applyTheorem :: PropT -> [Formula] -> Maybe PropT
 applyTheorem (PropT args body) formulas = do
     if length args /= length formulas
         then Nothing
-        else Just (PropT (unique . concat $ map (unique . extractArgs) formulas) (foldr replaceIn body (zip args formulas)))
+        else Just (PropT (unique . concat $ map extractArgs formulas) (foldr replaceIn body (zip args formulas)))
 
 expandFormula :: Formula -> Evaluator Formula
 expandFormula f@(Term ident) = do
@@ -71,6 +74,30 @@ expandFormula f@(Term ident) = do
 expandFormula (Not f') = liftM Not (expandFormula f')
 expandFormula (Imply f1 f2) = liftM2 Imply (expandFormula f1) (expandFormula f2)
 
+
+insertApplied :: Maybe (PropT, Int) -> PropT -> Evaluator (Maybe String, Maybe String, Maybe (PropT, Int))
+insertApplied maybePropCtx applied = do
+    let (Just (prop, i)) = maybePropCtx
+    let newName = "S" ++ show i
+    addProp newName applied
+    return (Just (newName ++ " " ++ show applied), Nothing, Just (prop, i + 1))
+
+
+extractNamedFormula :: Token -> Evaluator Formula
+extractNamedFormula (TkIdent ident) = do
+            maybeProp <- lookUp ident
+            return $ case maybeProp of
+                Nothing -> error "Not good applying"
+                Just (PropT _ body) -> body
+extractNamedFormula _ = error "Not good applying"
+
+mpApply :: Formula -> Formula -> Formula
+mpApply f1@(Imply f1p f1c) f2@(Imply f2p f2c) = if f1 == f2p then f2c
+        else if f2 == f1p then f1c
+            else error "mpApply error"
+mpApply f1 (Imply f2p f2c) = if f1 == f2p then f2c else error "mpApply error"
+mpApply (Imply f1p f1c) f2 = if f2 == f1p then f1c else error "mpApply error"
+mpApply _ _ = error "mpApply error"
 
 evaluate :: String -> Maybe (PropT, Int) -> Evaluator (Maybe String, Maybe String, Maybe (PropT, Int))
 evaluate str maybePropCtx
@@ -85,18 +112,31 @@ evaluate str maybePropCtx
         (propCtx, name) <- newTheorem tks
         return (Nothing, Just name, Just (propCtx, 0))
 
+    | tk == TkTac Qed = do
+        let (Just ((PropT _ body), i)) = maybePropCtx
+        (Just (PropT _ body')) <- lookUp $ "S" ++ show (i - 1)
+        if body == body' then return (Just ("Proved: " ++ show body), Nothing, Nothing)
+            else return (Just "Not Qed yet :(", Nothing, maybePropCtx)
+
+    | TkTac tac <- tk = if tac == Mp then do
+                formulas <- mapM extractNamedFormula $ filter (/= TkSyn Comma) tks
+                if length formulas == 2 then do
+                        let f1 = head formulas
+                        let f2 = head $ tail formulas
+                        let retF = mpApply f1 f2
+                        insertApplied maybePropCtx $ formulaToProp retF
+                    else return (Just "wrong MP applying!", Nothing, maybePropCtx)
+            else return (Just "not such tactic!", Nothing, maybePropCtx)
+
     | (TkIdent ident) <- tk = do
         (Just theorem) <- lookUp ident
         tks' <- mapM expandFormula $ parseFormulas tks
         case applyTheorem theorem tks' of
-            Just applied -> do
-                let (Just (prop, i)) = maybePropCtx
-                let newName = "S" ++ show i
-                addProp newName applied
-                return (Just (newName ++ " " ++ show applied), Nothing, Just (prop, i + 1))
+            Just applied -> insertApplied maybePropCtx applied
             Nothing -> do
                 return (Just ("Wrong applying!"), Nothing, maybePropCtx)
     | otherwise = error "Error evaluate"
+
   where
     (tk:tks) = tokenize str
 

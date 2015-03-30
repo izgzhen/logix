@@ -26,6 +26,6 @@ main = runInputT defaultSettings $ loop defaultContext defaultPrompt Nothing
                         Nothing  -> return ()
                         Just res -> outputStrLn res
                     let prompt' = case maybePrompt of
-                            Nothing -> prompt
+                            Nothing -> if maybeProp' == Nothing then defaultPrompt else prompt
                             Just p  -> p ++ " > "
                     loop ctx' prompt' maybeProp'

@@ -79,3 +79,7 @@ parseFormula (TkSyn LP : tks)
 	where
 		(formula, (TkSyn RP : rest)) = parseFormula tks
 		(formula'', tks'') = parseFormula $ tail rest
+
+parseFormula (TkSyn Ax : tks') = parseFormula tks'
+
+parseFormula f = error $ "Unable to parse" ++ show f
