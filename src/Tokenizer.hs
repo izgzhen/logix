@@ -3,10 +3,15 @@ import Text.Regex.Posix
 import Data.Char
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Either
 
-data Keyword = Type | Ind | Def | Prop | Prove | If | Then | Check | Axiom | Theorem deriving (Show, Eq, Enum)
+type EitherS = Either String
 
-data Syntactic = Eq | Of | Guard | Curry | LP | RP | Comma | Neg | Ax deriving (Show, Eq, Enum)
+data Keyword = Check | Axiom | Theorem deriving (Show, Eq, Enum)
+
+data Tactic = Qed | Mp deriving (Show, Eq, Enum)
+
+data Syntactic = Curry | LP | RP | Comma | Neg | Ax deriving (Show, Eq, Enum)
 
 data Token = TkKey Keyword
            | TkTac Tactic
@@ -14,58 +19,65 @@ data Token = TkKey Keyword
            | TkIdent String
            deriving (Show, Eq)
 
-data Tactic = Intro | Apply | Reflex | Qed | Mp deriving (Show, Eq, Enum)
+transformToMap l f = Map.fromList $ map f l
 
-keywords = Map.fromList $ map (\k -> (show k, k)) [Type ..]
-tactics  = Map.fromList $ map (\t -> ((\s -> (toLower $ head s) : tail s) (show t), t)) [Intro ..]
+keywords = transformToMap [Check ..] (\k -> (show k, k))
+tactics  = transformToMap  [Qed ..] (\t -> ((\s -> (toLower $ head s) : tail s) (show t), t))
+symbols  = Map.fromList [('(', TkSyn LP), (')', TkSyn RP), (',', TkSyn Comma), ('!', TkSyn Neg)]
 
-tokenize :: String -> [ Token ]
-tokenize "" = []
+type MapTk = Map.Map String Token
+
+tokenize :: String -> EitherS [Token]
+tokenize "" = Right []
 tokenize str@(c:cs)
-    | c == ':'  = TkSyn Of : tokenize cs
-    | c == '('  = TkSyn LP : tokenize cs
-    | c == ')'  = TkSyn RP : tokenize cs
-    | c == '='  = TkSyn Eq : tokenize cs
-    | c == ','  = TkSyn Comma : tokenize cs
-    | c == '!'  = TkSyn Neg   : tokenize cs
-    | c == '-'  = matchSlash str
-    | c == '|'  = matchBar str
+    | Map.member c symbols = do
+        let (Just tk) = Map.lookup c symbols
+        tks <- tokenize cs
+        return (tk : tks)
     | isSpace c = tokenize cs
     | isAlpha c = matchAlpha str
-    | otherwise = error $ "parsing error at " ++ str
+    | c == '-' = matchSlash str
+    | c == '|' = matchBar str
+    | otherwise = Left $ "[tokenize] error tokenizing " ++ show str
 
 
-matchAlpha :: String -> [ Token ]
-matchAlpha "" = []
-matchAlpha str = matchHead (\c -> isAlpha c || c `elem` "\'_" || isDigit c) matchAlpha' str
-
-matchHead :: (Char -> Bool) -> (String -> Token) -> String -> [ Token ]
+matchHead :: (Char -> Bool) -> (String -> EitherS Token) -> String -> EitherS [Token]
 matchHead f g str
-    | word == "" = [g rest]
-    | otherwise  = g word : tokenize rest
+  | word == "" = do
+        tk <- g rest
+        return [tk]
+  | otherwise  = do
+      restTks <- tokenize rest
+      tk <- g word
+      return (tk : restTks)
   where
     (word, rest) = span f str
 
-matchAlpha' :: String -> Token
-matchAlpha' word
-    | maybeKey /= Nothing = TkKey $ fromJust maybeKey
-    | maybeTac /= Nothing = TkTac $ fromJust maybeTac
-    | otherwise         = TkIdent word
-    where
-        maybeKey = Map.lookup word keywords
-        maybeTac = Map.lookup word tactics
+matchAlpha :: String -> EitherS [Token]
+matchAlpha "" = return []
+matchAlpha str = matchHead (\c -> isAlpha c || c `elem` "\'_" || isDigit c) matchAlpha' str
 
-matchSlash :: String -> [ Token ]
+matchSlash :: String -> EitherS [Token]
 matchSlash = matchHead (\c -> c `elem` "->") matchSlash'
 
-matchSlash' :: String -> Token
-matchSlash' operator
-    | operator == "->" = TkSyn Curry
-    | otherwise        = error $ "No such slash word" ++ operator
-
-matchBar :: String -> [ Token ]
-matchBar "" = []
+matchBar :: String -> EitherS [Token]
+matchBar "" = return []
 matchBar str
-    | length str < 3 = error $ "No such bar " ++ str
-    | str !! 1 == '-'  = TkSyn Ax : tokenize (drop 2 str)
-    | otherwise = TkSyn Guard : tokenize (drop 1 str)
+    | length str < 3   = fail $ "No such bar " ++ str
+    | str !! 1 == '-'  = do
+        tks <- tokenize (drop 2 str)
+        return $ TkSyn Ax : tks
+
+matchAlpha' :: String -> EitherS Token
+matchAlpha' word
+    | isMember keywords = return (TkKey $ getFrom keywords)
+    | isMember tactics  = return (TkTac $ getFrom tactics)
+    | otherwise         = return (TkIdent word)
+    where
+      isMember = Map.member word
+      getFrom kv = fromJust $ Map.lookup word kv
+
+matchSlash' :: String -> EitherS Token
+matchSlash' operator
+    | operator == "->" = return (TkSyn Curry)
+    | otherwise        = fail $ "No such slash word" ++ operator

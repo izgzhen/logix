@@ -1,31 +1,33 @@
--- Propsitioinal Logic Assistant
--- Building Axioms, Applying MP rules and theorems/axioms
--- REPL Looping
-
 import PropEval
 import System.Console.Haskeline
 import Control.Monad.State
 
-defaultPrompt = "> "
-
+-- 
 main :: IO ()
-main = runInputT defaultSettings $ loop defaultContext defaultPrompt Nothing
-    where
-        loop ctx prompt maybeProp = do
-            minput <- getInputLine prompt
-            case minput of
-                Nothing     -> return ()
-                Just "quit" -> return ()
-                Just "exit" -> return ()
-                Just ""     -> loop ctx prompt maybeProp
-                Just input  -> repl input ctx prompt maybeProp
+main = runInputT defaultSettings $ loop defaultPropCtx defaultContext
 
-        repl input ctx prompt maybeProp = do
-                    let ((maybeRes, maybePrompt, maybeProp'), ctx') = runState (evaluate input maybeProp) ctx
-                    case maybeRes of
-                        Nothing  -> return ()
-                        Just res -> outputStrLn res
-                    let prompt' = case maybePrompt of
-                            Nothing -> if maybeProp' == Nothing then defaultPrompt else prompt
-                            Just p  -> p ++ " > "
-                    loop ctx' prompt' maybeProp'
+loop :: MonadException m => PropContext -> SymbolContext -> InputT m ()
+loop propCtx sCtx = do
+	maybeInput <- getInputLine (case maybePropName propCtx of
+		Nothing -> "> "
+		Just p  -> p ++ " > ")
+	case maybeInput of
+		Nothing     -> return ()
+		Just "quit" -> return ()
+		Just ""     -> repl Nothing propCtx sCtx
+		Just input  -> repl (Just input) propCtx sCtx
+
+repl :: MonadException m => Maybe String -> PropContext -> SymbolContext -> InputT m ()
+repl mInput propCtx sCtx = do
+	let (eFeedback, sCtx') = runState (evaluate mInput propCtx) sCtx
+	case eFeedback of
+		Right (mOutput, propCtx') -> do
+			if mOutput /= Nothing then do
+				let (Just res) = mOutput
+				if length res > 0 then outputStrLn res
+					else return ()
+				else return ()
+			loop propCtx' sCtx'
+		Left errorMsg -> do
+			outputStrLn $ "[ERROR]: " ++ errorMsg
+			loop propCtx sCtx

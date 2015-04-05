@@ -1,0 +1,13 @@
+Axiom L1(p, q): p -> (q -> p)
+Axiom L2(p, q, r): (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+Axiom L3(p, q): (!p -> !q) -> (q -> p)
+Theorem id_rule(p): |- p -> p
+Check L1
+Check L2
+Check L3
+L1 p, (p -> p)
+L2 p, (p -> p), p
+mp S0, S1
+L1 p, p
+mp S2, S3
+qed
