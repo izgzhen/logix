@@ -12,9 +12,21 @@ import Control.Monad.State
 
 data PropT = PropT [String] Formula deriving (Show, Eq) -- arguments and body
 
+data Deriving = Assume | Negfront deriving (Show, Eq)
+data Strategy = StTac Tactic | StDer Deriving deriving (Show, Eq)
+
+getStrat :: String -> Strategy
+getStrat "assum" = StDer Assume
+getStrat "negfront" = StDer Negfront
+getStrat "L1" = StTac L1
+getStrat "L2" = StTac L2
+getStrat "L3" = StTac L3
+
 type SymbolContext = M.Map String PropT -- Map name to proposition
 
-type Evaluator a = State SymbolContext a -- Context Wrapper
+type StepRecord = M.Map Int (PropT, Strategy)
+
+type Evaluator a = State (SymbolContext, StepRecord) a -- Context Wrapper
 
 type PropContext = Maybe (String, PropT, Int) -- Proposition information which is in being proved
 
@@ -24,7 +36,7 @@ maybePropName Nothing = Nothing
 
 -- Default Settings
 defaultPropCtx = Nothing
-defaultContext = M.fromList [] :: M.Map String PropT
+defaultContext = (M.fromList [] :: M.Map String PropT, M.fromList [] :: M.Map Int (PropT, Strategy))
 
 -- Helpers for Error Handling, just the type signatures will be meaningful
 
@@ -96,29 +108,51 @@ mpErr = Left "MP Rule Applying Incorrect"
 -------- IMPURE FUNTIONS ---------------
 
 -- Lookup a proposition by its name
+lookUpSymbol :: String -> Evaluator (Maybe PropT)
+lookUpSymbol name = do
+    (sCtx, sRecord) <- get
+    return $ M.lookup name sCtx
+
+lookUpRecordByString :: String -> Evaluator (Maybe PropT)
+lookUpRecordByString ('S':indexIdent) = do
+    (sCtx, sRecord) <- get
+    case reads indexIdent :: [(Int, String)] of
+        (num, ""):[] -> do
+            return $ liftM fst $ M.lookup num sRecord
+        _ -> return Nothing
+lookUpRecordByString _ = return Nothing
+
+lookUpRecord :: Int -> Evaluator (Maybe (PropT, Strategy))
+lookUpRecord index = do
+    (sCtx, sRecord) <- get
+    return $ M.lookup index sRecord
+
 lookUp :: String -> Evaluator (Maybe PropT)
-lookUp name = do
-    ctx <- get
-    return $ M.lookup name ctx
+lookUp name = liftM msum $ sequence [lookUpSymbol name, lookUpRecordByString name]
 
 -- Add a proposition by its name
-addProp :: String -> PropT -> Evaluator ()
-addProp name prop = do
-    ctx <- get
-    put $ M.insert name prop ctx
+addSymbol :: String -> PropT -> Evaluator ()
+addSymbol name prop = do
+    (sCtx, sRecord) <- get
+    put $ (M.insert name prop sCtx, sRecord)
+
+addRecord :: Int -> PropT -> Strategy -> Evaluator ()
+addRecord index prop strat = do
+    (sCtx, sRecord) <- get
+    put $ (sCtx, M.insert index (prop, strat) sRecord)
 
 -- Add an axiom to the context
 addAxiom :: [Token] -> Evaluator (EitherS ())
 addAxiom = \tks -> parseAxiom tks <||||> (\(name, args, body) -> do
     if sort (extractArgs body) == sort args then do
-            addProp name (PropT args body)
+            addSymbol name (PropT args body)
             return $ Right ()
         else return $ Left "arguments not matching in axiom")
 
 -- Expand the formula based on current context
 expandFormula :: Formula -> Evaluator Formula
 expandFormula f@(Term ident) = do
-    maybeProp <- lookUp ident
+    maybeProp <- lookUpRecordByString ident
     return $ case maybeProp of
         Nothing -> f
         Just (PropT _ body) -> body
@@ -128,7 +162,7 @@ expandFormula (Imply f1 f2) = liftM2 Imply (expandFormula f1) (expandFormula f2)
 -- Extract the body of named proposition from context by a token, handling all exceptions
 extractNamedFormula :: Token -> Evaluator (EitherS Formula)
 extractNamedFormula (TkIdent ident) = do
-            maybeProp <- lookUp ident
+            maybeProp <- lookUpRecordByString ident
             return $ case maybeProp of
                 Nothing -> Left "Not a defined name"
                 Just (PropT _ body) -> Right body
@@ -141,14 +175,13 @@ applyTheorem (PropT args body) formulas = do
         else Right (PropT (unique . concat $ map extractArgs formulas) (foldr replaceIn body (zip args formulas)))
 
 -- Add a step during proving
-addNewProp :: PropT -> PropContext -> Evaluator (Maybe String, PropContext)
-addNewProp applied propCtx = do
+addNewProp :: PropT -> PropContext -> Strategy -> Evaluator (Maybe String, PropContext)
+addNewProp applied propCtx strat = do
     case propCtx of
         Nothing -> return (Just "Not in PropContext!", propCtx)
         Just (name, body, i) -> do
-            let newName = "S" ++ show i
-            addProp newName applied
-            return (Just (newName ++ " " ++ show applied), plusOne propCtx)
+            addRecord i applied strat
+            return (Just ("S" ++ show i ++ " " ++ show applied), plusOne propCtx)
 
 -- "Check" Command
 evalCheck :: [Token] -> Evaluator String
@@ -179,9 +212,9 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
         case propCtx of
             Nothing -> return $ Left "Not in PropContext!"
             Just (name, body, i) -> do
-                (Just body') <- lookUp $ "S" ++ show (i - 1)
+                (Just (body', _)) <- lookUpRecord (i - 1)
                 if body == body' then do
-                    addProp name body
+                    addSymbol name body
                     return $ Right (Just ("Proved: " ++ name ++ " " ++ show body), defaultPropCtx)
                     else return $ Left "Not proved yet!"
 
@@ -190,17 +223,18 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
             let formulas = rights formulasE
             if length formulas == 2 then do
                     let (f1 : f2 : _) = formulas
-                    mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx)
+                    mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx $ StTac Mp)
                 else return $ Left "wrong MP arguments!"
 
     TkIdent ident -> do
-        ret <- lookUp ident
+        ret <- lookUpSymbol ident
         case ret of
             Nothing -> return $ Left $ "No such identifier '" ++ ident ++ "'"
             Just prop -> (parseFormulas tks <||||> (applyProp prop))
             where
+                strat = getStrat ident
                 applyProp prop formulas = do
                     tks' <- mapM expandFormula formulas
-                    ((applyTheorem prop tks') <||> (flip addNewProp propCtx))
+                    ((applyTheorem prop tks') <||> (\p -> addNewProp p propCtx strat))
 
     _ -> return $ Left "Uable to evaluate"

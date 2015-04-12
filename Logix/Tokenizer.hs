@@ -9,7 +9,7 @@ type EitherS = Either String
 
 data Keyword = Check | Axiom | Theorem deriving (Show, Eq, Enum)
 
-data Tactic = Qed | Mp deriving (Show, Eq, Enum)
+data Tactic = Qed | Mp | L1 | L2 | L3 deriving (Show, Eq, Enum)
 
 data Syntactic = Of | Curry | LP | RP | Comma | Neg | Ax deriving (Show, Eq, Enum)
 

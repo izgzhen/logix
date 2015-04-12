@@ -8,11 +8,6 @@
 	- etc.
 -}
 
-module Unwrap where
-import PropParser
-import Tokenizer
-
-type step = (Formula, String)
-
-mpUnwrap :: [Formula] -> [step] -> [step]
-mpUnwrap assumptions steps steps' = undefined
+module Logix.Unwrap where
+import Logix.PropParser
+import Logix.Tokenizer

@@ -9,8 +9,8 @@ main :: IO ()
 main = runInputT defaultSettings $ loop defaultPropCtx defaultContext
 
 -- Outer Loop
-loop :: MonadException m => PropContext -> SymbolContext -> InputT m ()
-loop propCtx sCtx = do
+loop :: MonadException m => PropContext -> (SymbolContext, StepRecord) -> InputT m ()
+loop propCtx ctx = do
 	-- If we are proving something, we add its name before the prompt
 	maybeInput <- getInputLine (case maybePropName propCtx of
 		Nothing -> "> "
@@ -19,14 +19,14 @@ loop propCtx sCtx = do
 	case maybeInput of
 		Nothing     -> return ()
 		Just "quit" -> return ()
-		Just ""     -> repl Nothing propCtx sCtx
-		Just input  -> repl (Just input) propCtx sCtx
+		Just ""     -> repl Nothing propCtx ctx
+		Just input  -> repl (Just input) propCtx ctx
 
 -- Inner Loop
-repl :: MonadException m => Maybe String -> PropContext -> SymbolContext -> InputT m ()
-repl mInput propCtx sCtx = do
+repl :: MonadException m => Maybe String -> PropContext -> (SymbolContext, StepRecord) -> InputT m ()
+repl mInput propCtx ctx = do
 	-- Evaluate the input and get feedback under current context
-	let (eFeedback, sCtx') = runState (evaluate mInput propCtx) sCtx
+	let (eFeedback, ctx') = runState (evaluate mInput propCtx) ctx
 
 	-- Normal feedback or error
 	case eFeedback of
@@ -36,7 +36,7 @@ repl mInput propCtx sCtx = do
 				if length res > 0 then outputStrLn res
 					else return ()
 				else return ()
-			loop propCtx' sCtx' -- Next loop with new context
+			loop propCtx' ctx' -- Next loop with new context
 		Left errorMsg -> do
 			outputStrLn $ "[ERROR]: " ++ errorMsg
-			loop propCtx sCtx -- Do nothing, roll back to the old context
+			loop propCtx ctx -- Do nothing, roll back to the old context
