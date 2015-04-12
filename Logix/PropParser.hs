@@ -1,6 +1,6 @@
-module PropParser where
+module Logix.PropParser where
 
-import Tokenizer
+import Logix.Tokenizer
 import Data.List.Split
 import Data.Maybe
 import Data.Either
@@ -21,14 +21,14 @@ parseLine ln = do
 	tks <- tokenize ln
 	case (head tks) of
 		TkKey Axiom -> return . show . parseAxiom $ tail tks
-		_           -> fail "illegal parsing line"
+		_           -> Left "illegal parsing line"
 
 parseAxiom :: [Token] -> EitherS (String, [String], Formula)
 parseAxiom ts@(TkIdent name : TkSyn LP : tks) = do
 	(args, rest) <- parseArgs tks
 	ret <- parseFormula (tail rest)
 	return $ let (body, []) = ret in (name, args, body)
-parseAxiom ts = fail $ "Error in parsing " ++ show ts
+parseAxiom ts = Left $ "Error in parsing Axiom: " ++ show ts
 
 
 parseArgs :: [Token] -> EitherS ([String], [Token])
@@ -37,7 +37,7 @@ parseArgs (TkIdent ident : TkSyn Comma : tks) = do
 	(args, rest) <- parseArgs tks
 	return (ident : args, rest)
 parseArgs (TkIdent ident : TkSyn RP : tks) = return ([ident], tks)
-parseArgs tks = fail $ "Error parsing args" ++ show tks
+parseArgs tks = Left $ "Error parsing args" ++ show tks
 
 
 parseFormulas :: [Token] -> EitherS [Formula]
@@ -46,7 +46,7 @@ parseFormulas tks = do
 	where isValidFormula x = do
 		(f, lts) <- x
 		if length lts == 0 then return f
-				else fail "error parsing formula"
+				else Left "error parsing formula"
 
 
 parseFormula :: [Token] -> EitherS (Formula, [Token])
@@ -63,12 +63,12 @@ parseFormula (TkSyn Neg : TkIdent ident : tks) = return (Not $ Term ident, tks)
 parseFormula (TkSyn Neg : TkSyn LP : tks) = parseFormula' tks Not
 parseFormula (TkSyn LP : tks) = parseFormula' tks id
 parseFormula (TkSyn Ax : tks') = parseFormula tks' -- A little hack
-parseFormula _ = fail "parseFormula Error"
+parseFormula _ = Left "parseFormula Error"
 
 parseFormula' :: [Token] -> (Formula -> Formula) -> EitherS (Formula, [Token])
 parseFormula' tks f = do
 	(formula, (TkSyn RP : rest)) <- parseFormula tks
-	(formula'', tks'') <- parseFormula $ tail rest
-	return $ if length rest > 0 && head rest == TkSyn Curry then
-		(Imply (f formula) formula'', tks'')
-		else (f formula, rest)
+	if length rest > 0 && head rest == TkSyn Curry then do
+		(formula'', tks'') <- parseFormula $ tail rest
+		return (Imply (f formula) formula'', tks'')
+		else return (f formula, rest)

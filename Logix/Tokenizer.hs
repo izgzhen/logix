@@ -1,4 +1,4 @@
-module Tokenizer where
+module Logix.Tokenizer where
 import Text.Regex.Posix
 import Data.Char
 import qualified Data.Map as Map
@@ -11,7 +11,7 @@ data Keyword = Check | Axiom | Theorem deriving (Show, Eq, Enum)
 
 data Tactic = Qed | Mp deriving (Show, Eq, Enum)
 
-data Syntactic = Curry | LP | RP | Comma | Neg | Ax deriving (Show, Eq, Enum)
+data Syntactic = Of | Curry | LP | RP | Comma | Neg | Ax deriving (Show, Eq, Enum)
 
 data Token = TkKey Keyword
            | TkTac Tactic
@@ -23,7 +23,7 @@ transformToMap l f = Map.fromList $ map f l
 
 keywords = transformToMap [Check ..] (\k -> (show k, k))
 tactics  = transformToMap  [Qed ..] (\t -> ((\s -> (toLower $ head s) : tail s) (show t), t))
-symbols  = Map.fromList [('(', TkSyn LP), (')', TkSyn RP), (',', TkSyn Comma), ('!', TkSyn Neg)]
+symbols  = Map.fromList [('(', TkSyn LP), (')', TkSyn RP), (',', TkSyn Comma), ('!', TkSyn Neg), (':', TkSyn Of)]
 
 type MapTk = Map.Map String Token
 
@@ -63,7 +63,7 @@ matchSlash = matchHead (\c -> c `elem` "->") matchSlash'
 matchBar :: String -> EitherS [Token]
 matchBar "" = return []
 matchBar str
-    | length str < 3   = fail $ "No such bar " ++ str
+    | length str < 3   = Left $ "No such bar " ++ str
     | str !! 1 == '-'  = do
         tks <- tokenize (drop 2 str)
         return $ TkSyn Ax : tks
@@ -80,4 +80,4 @@ matchAlpha' word
 matchSlash' :: String -> EitherS Token
 matchSlash' operator
     | operator == "->" = return (TkSyn Curry)
-    | otherwise        = fail $ "No such slash word" ++ operator
+    | otherwise        = Left $ "No such slash word" ++ operator
