@@ -65,7 +65,7 @@ plusOne Nothing = Nothing
 plusOne (Just (name, body, i)) = Just (name, body, i + 1)
 
 -- Just for readability
-unique = map (\(x:_) -> x) . group
+unique = map (\(x:_) -> x) . group . sort
 
 -------- PURE FUNCTIONS ----------------
 
@@ -74,15 +74,17 @@ replaceIn :: (String, Formula) -> Formula -> Formula
 replaceIn (slot, content) body = checkFormula body
     where
         checkFormula (Imply f1 f2) = (Imply (r' f1) (r' f2))
-            where r' = replaceIn (slot, content)
         checkFormula formula@(Term str) = if slot == str then content else formula
         checkFormula Empty = Empty
+        checkFormula (Not f) = Not $ r' f
+        r' = replaceIn (slot, content)
 
 -- Extract all appeared arguments from a formula body
 extractArgs :: Formula -> [String]
 extractArgs Empty = []
 extractArgs (Imply f1 f2) = unique $ extractArgs f1 ++ extractArgs f2
 extractArgs (Term str) = [str]
+extractArgs (Not f) = unique $ extractArgs f
 
 -- Transform a formula to a proposition
 formulaToProp :: Formula -> PropT
