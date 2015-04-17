@@ -1,6 +1,7 @@
 -- Main Function
 
 import Logix.PropEval
+import Logix.PropContext
 import System.Console.Haskeline
 import Control.Monad.State
 

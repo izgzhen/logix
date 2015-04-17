@@ -11,4 +11,3 @@
 module Logix.Unwrap where
 import Logix.PropParser
 import Logix.Tokenizer
-

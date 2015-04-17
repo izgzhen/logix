@@ -20,8 +20,12 @@ executable logix
   main-is:           Main.hs
   other-modules:     Logix.PropEval
                      Logix.PropParser
+                     Logix.PropTransform
+                     Logix.PropContext
                      Logix.Tokenizer
                      Logix.Unwrap
+                     Logix.Utils
+
   -- other-extensions:
   build-depends:
     base >=4.7 && <4.8,
