@@ -2,6 +2,7 @@ module Logix.PropEval where
 
 import Logix.PropParser
 import Logix.Tokenizer
+import Logix.Unwrap
 import Data.Char
 import Data.List
 import Data.Either
@@ -9,23 +10,15 @@ import qualified Data.Map as M
 import Control.Monad
 import Control.Monad.State
 
-
 data PropT = PropT [String] Formula deriving (Show, Eq) -- arguments and body
 
-data Deriving = Assume | Negfront deriving (Show, Eq)
-data Strategy = StTac Tactic | StDer Deriving deriving (Show, Eq)
 
-getStrat :: String -> Strategy
-getStrat "assum" = StDer Assume
-getStrat "negfront" = StDer Negfront
-getStrat "L1" = StTac L1
-getStrat "L2" = StTac L2
-getStrat "L3" = StTac L3
+data StrategyKind = MpRule | Negfront | L1 | L2 | L3 deriving (Show)
+data StrategyInstance = Strategy StrategyKind [Int] -- Name and its arguments
 
-type SymbolContext = M.Map String PropT -- Map name to proposition
-
-type StepRecord = M.Map Int (PropT, Strategy)
-
+type Step = (PropT, StrategyInstance)
+type SymbolContext = M.Map String (PropT, [Step]) -- Map name to proposition
+type StepRecord = M.Map Int Step -- Record steps during proving
 type Evaluator a = State (SymbolContext, StepRecord) a -- Context Wrapper
 
 type PropContext = Maybe (String, PropT, Int) -- Proposition information which is in being proved
@@ -36,7 +29,8 @@ maybePropName Nothing = Nothing
 
 -- Default Settings
 defaultPropCtx = Nothing
-defaultContext = (M.fromList [] :: M.Map String PropT, M.fromList [] :: M.Map Int (PropT, Strategy))
+preloadedAxioms = M.fromList [] :: SymbolContext
+defaultContext = (preloadedAxioms, M.fromList [] :: StepRecord)
 
 -- Helpers for Error Handling, just the type signatures will be meaningful
 
@@ -44,6 +38,7 @@ defaultContext = (M.fromList [] :: M.Map String PropT, M.fromList [] :: M.Map In
 (<||>) :: (Monad m) => EitherS b -> (b -> m c) -> m (EitherS c)
 (<|||>) :: (Monad m) => m (EitherS b) -> (b -> c) -> m (EitherS c)
 (<||||>) :: (Monad m) => EitherS b -> (b -> m (EitherS c)) -> m (EitherS c)
+(<|||||>) :: (Monad m) => m (EitherS b) -> (b -> m (EitherS c)) -> m (EitherS c)
 
 (<|>) val g = return $ case val of
     Right bVal -> Right (g bVal)
@@ -58,6 +53,10 @@ defaultContext = (M.fromList [] :: M.Map String PropT, M.fromList [] :: M.Map In
 (<||||>) val g = case val of
         Right bVal -> (g bVal) <|||> id
         Left err -> return $ Left err
+
+(<|||||>) val g = val >>= (\val' -> case val' of
+        Right bVal -> (g bVal) <|||> id
+        Left err -> return $ Left err)
 
 -- Handy function for in-proving context advancing
 plusOne :: PropContext -> PropContext
@@ -113,7 +112,7 @@ mpErr = Left "MP Rule Applying Incorrect"
 lookUpSymbol :: String -> Evaluator (Maybe PropT)
 lookUpSymbol name = do
     (sCtx, sRecord) <- get
-    return $ M.lookup name sCtx
+    return $ liftM fst $ M.lookup name sCtx
 
 lookUpRecordByString :: String -> Evaluator (Maybe PropT)
 lookUpRecordByString ('S':indexIdent) = do
@@ -124,7 +123,7 @@ lookUpRecordByString ('S':indexIdent) = do
         _ -> return Nothing
 lookUpRecordByString _ = return Nothing
 
-lookUpRecord :: Int -> Evaluator (Maybe (PropT, Strategy))
+lookUpRecord :: Int -> Evaluator (Maybe Step)
 lookUpRecord index = do
     (sCtx, sRecord) <- get
     return $ M.lookup index sRecord
@@ -133,12 +132,12 @@ lookUp :: String -> Evaluator (Maybe PropT)
 lookUp name = liftM msum $ sequence [lookUpSymbol name, lookUpRecordByString name]
 
 -- Add a proposition by its name
-addSymbol :: String -> PropT -> Evaluator ()
-addSymbol name prop = do
+addSymbol :: String -> PropT -> [Step] -> Evaluator ()
+addSymbol name prop steps = do
     (sCtx, sRecord) <- get
-    put $ (M.insert name prop sCtx, sRecord)
+    put $ (M.insert name (prop, steps) sCtx, sRecord)
 
-addRecord :: Int -> PropT -> Strategy -> Evaluator ()
+addRecord :: Int -> PropT -> StrategyInstance -> Evaluator ()
 addRecord index prop strat = do
     (sCtx, sRecord) <- get
     put $ (sCtx, M.insert index (prop, strat) sRecord)
@@ -147,7 +146,7 @@ addRecord index prop strat = do
 addAxiom :: [Token] -> Evaluator (EitherS ())
 addAxiom = \tks -> parseAxiom tks <||||> (\(name, args, body) -> do
     if sort (extractArgs body) == sort args then do
-            addSymbol name (PropT args body)
+            addSymbol name (PropT args body) []
             return $ Right ()
         else return $ Left "arguments not matching in axiom")
 
@@ -177,7 +176,7 @@ applyTheorem (PropT args body) formulas = do
         else Right (PropT (unique . concat $ map extractArgs formulas) (foldr replaceIn body (zip args formulas)))
 
 -- Add a step during proving
-addNewProp :: PropT -> PropContext -> Strategy -> Evaluator (Maybe String, PropContext)
+addNewProp :: PropT -> PropContext -> StrategyInstance -> Evaluator (Maybe String, PropContext)
 addNewProp applied propCtx strat = do
     case propCtx of
         Nothing -> return (Just "Not in PropContext!", propCtx)
@@ -215,28 +214,31 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
             Nothing -> return $ Left "Not in PropContext!"
             Just (name, body, i) -> do
                 (Just (body', _)) <- lookUpRecord (i - 1)
+                records <- gatherRecords
                 if body == body' then do
-                    addSymbol name body
+                    addSymbol name body records
                     return $ Right (Just ("Proved: " ++ name ++ " " ++ show body), defaultPropCtx)
                     else return $ Left "Not proved yet!"
+                where
+                    gatherRecords :: Evaluator [Step]
+                    gatherRecords = undefined
 
-    TkTac Mp -> do
+    TkTac MpSyn -> do
             formulasE <- mapM extractNamedFormula $ filter (/= TkSyn Comma) tks
             let formulas = rights formulasE
             if length formulas == 2 then do
                     let (f1 : f2 : _) = formulas
-                    mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx $ StTac Mp)
+                    (parseIndex formulas) <||||> (\parsedIndex ->
+                        mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx (Strategy MpRule $ parsedIndex)))
                 else return $ Left "wrong MP arguments!"
 
-    TkIdent ident -> do
-        ret <- lookUpSymbol ident
-        case ret of
-            Nothing -> return $ Left $ "No such identifier '" ++ ident ++ "'"
-            Just prop -> (parseFormulas tks <||||> (applyProp prop))
+    TkIdent ident -> analyzeIdent ident <|||||> (\(strat, prop) -> 
+        parseFormulas tks <||||> applyProp prop strat)
             where
-                strat = getStrat ident
-                applyProp prop formulas = do
+                applyProp prop strat formulas = do
                     tks' <- mapM expandFormula formulas
                     ((applyTheorem prop tks') <||> (\p -> addNewProp p propCtx strat))
+                analyzeIdent :: String -> Evaluator (EitherS (StrategyInstance, PropT))
+                analyzeIdent = undefined
 
     _ -> return $ Left "Uable to evaluate"

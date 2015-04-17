@@ -21,6 +21,7 @@ executable logix
   other-modules:     Logix.PropEval
                      Logix.PropParser
                      Logix.Tokenizer
+                     Logix.Unwrap
   -- other-extensions:
   build-depends:
     base >=4.7 && <4.8,
