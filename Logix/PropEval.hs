@@ -2,7 +2,6 @@ module Logix.PropEval where
 
 import Logix.PropParser
 import Logix.Tokenizer
-import Logix.Unwrap
 import Logix.PropContext
 import Logix.PropTransform
 import Logix.Utils

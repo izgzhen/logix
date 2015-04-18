@@ -2,6 +2,7 @@
 
 import Logix.PropEval
 import Logix.PropContext
+import Logix.Unwrap
 import System.Console.Haskeline
 import Control.Monad.State
 

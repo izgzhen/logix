@@ -6,7 +6,8 @@ module Logix.Utils (
 	(<|||>),
 	(<||||>),
 	(<|||||>),
-	unique
+	unique,
+    ifSameLength
 	) where
 import Control.Monad
 import Data.List
@@ -39,3 +40,6 @@ type EitherS = Either String
 
 unique :: (Eq a, Ord a) => [a] -> [a]
 unique = map (\(x:_) -> x) . group . sort
+
+ifSameLength :: [a] -> [b] -> EitherS ()
+ifSameLength as bs = if length as == length bs then return () else fail "not of same length"

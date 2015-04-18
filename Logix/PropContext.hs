@@ -2,7 +2,6 @@ module Logix.PropContext where
 
 import Logix.PropParser
 import Logix.Tokenizer
-import Logix.Unwrap
 import Logix.Utils
 import Data.Char
 import Data.List
@@ -11,7 +10,8 @@ import qualified Data.Map as M
 import Control.Monad
 import Control.Monad.State
 
-data PropT = PropT [String] Formula deriving (Show, Eq) -- arguments and body
+type FormalArguments = [String]
+data PropT = PropT FormalArguments Formula deriving (Show, Eq) -- arguments and body
 
 data StrategyKind = MpRule | Negfront | L1 | L2 | L3 deriving (Show)
 data StrategyInstance = Strategy StrategyKind [Int] -- Name and its arguments

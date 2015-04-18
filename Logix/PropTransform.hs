@@ -2,7 +2,6 @@ module Logix.PropTransform where
 
 import Logix.PropParser
 import Logix.Tokenizer
-import Logix.Unwrap
 import Logix.PropContext
 import Logix.Utils
 import Data.Char
