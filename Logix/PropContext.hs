@@ -13,7 +13,7 @@ import Control.Monad.State
 type FormalArguments = [String]
 data PropT = PropT FormalArguments Formula deriving (Show, Eq) -- arguments and body
 
-data StrategyKind = MpRule | Negfront | L1 | L2 | L3 deriving (Show, Ord, Eq)
+data StrategyKind = MpRule | Negfront | L1 | L2 | L3 | HarmlessPre | L2MP | Assume deriving (Show, Ord, Eq)
 data Strategy = Strategy StrategyKind [Int] deriving (Show) -- Name and its arguments
 
 type Step = (PropT, Strategy)

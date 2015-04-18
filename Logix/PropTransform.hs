@@ -48,3 +48,6 @@ termsToNames :: [Formula] -> [String]
 termsToNames [] = []
 termsToNames (Term s : ts) = s : termsToNames ts
 termsToNames _ = error "termsToNames error"
+
+unStep :: Step -> Formula
+unStep (PropT _ body, _) = body

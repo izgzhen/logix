@@ -57,7 +57,7 @@ applyTheorem (PropT args body) formulas = do
         else Right (PropT (unique . concat $ map extractArgs formulas) (foldr replaceIn body (zip args formulas)))
 
 -- Add a step during proving
-addNewProp :: PropT -> PropContext -> StrategyInstance -> Evaluator (Maybe String, PropContext)
+addNewProp :: PropT -> PropContext -> Strategy -> Evaluator (Maybe String, PropContext)
 addNewProp applied propCtx strat = do
     case propCtx of
         Nothing -> return (Just "Not in PropContext!", propCtx)
@@ -119,7 +119,7 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
                 applyProp prop strat formulas = do
                     tks' <- mapM expandFormula formulas
                     ((applyTheorem prop tks') <||> (\p -> addNewProp p propCtx strat))
-                analyzeIdent :: String -> Evaluator (EitherS (StrategyInstance, PropT))
+                analyzeIdent :: String -> Evaluator (EitherS (Strategy, PropT))
                 analyzeIdent = undefined
 
     _ -> return $ Left "Uable to evaluate"
