@@ -42,3 +42,9 @@ addAxiom = \tks -> parseAxiom tks <||||> (\(name, args, body) -> do
             addSymbol name (PropT args body) []
             return $ Right ()
         else return $ Left "arguments not matching in axiom")
+
+
+termsToNames :: [Formula] -> [String]
+termsToNames [] = []
+termsToNames (Term s : ts) = s : termsToNames ts
+termsToNames _ = error "termsToNames error"
