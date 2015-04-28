@@ -1,5 +1,5 @@
 module Logix.PropEval where
-
+import Logix.PropDefs
 import Logix.PropParser
 import Logix.Tokenizer
 import Logix.PropContext
@@ -30,6 +30,19 @@ mpApply _ _ = mpErr
 mpErr = Left "MP Rule Applying Incorrect"
 
 -------- IMPURE FUNTIONS ---------------
+
+
+skMap' = M.fromList
+    [ ("mp", MpRule)
+    , ("negfront", Negfront)
+    , ("L1", L1)
+    , ("L2", L2)
+    , ("L3", L3)
+    , ("hp", HarmlessPre)
+    , ("L2mp", L2MP)
+    , ("assume", Assume)
+    ] :: M.Map String StrategyKind
+
 
 -- Expand the formula based on current context
 expandFormula :: Formula -> Evaluator Formula
@@ -100,9 +113,6 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
                     addSymbol name body records
                     return $ Right (Just ("Proved: " ++ name ++ " " ++ show body), defaultPropCtx)
                     else return $ Left "Not proved yet!"
-                where
-                    gatherRecords :: Evaluator [Step]
-                    gatherRecords = undefined
 
     TkTac MpSyn -> do
             formulasE <- mapM extractNamedFormula $ filter (/= TkSyn Comma) tks
@@ -120,6 +130,12 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
                     tks' <- mapM expandFormula formulas
                     ((applyTheorem prop tks') <||> (\p -> addNewProp p propCtx strat))
                 analyzeIdent :: String -> Evaluator (EitherS (Strategy, PropT))
-                analyzeIdent = undefined
+                analyzeIdent ident = do
+                    mProp <- lookUpSymbol ident
+                    case mProp of
+                        Just prop -> return $ case M.lookup ident skMap' of
+                                Just sk -> return (Strategy sk [], prop)
+                                Nothing -> fail $ "no such strategy: " ++ show ident
+                        Nothing -> return $ fail $ "no such identifier: " ++ show ident
 
     _ -> return $ Left "Uable to evaluate"

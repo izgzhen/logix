@@ -1,5 +1,5 @@
 -- Main Function
-
+import Logix.PropDefs
 import Logix.PropEval
 import Logix.PropContext
 import Logix.Unwrap

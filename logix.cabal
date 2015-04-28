@@ -18,13 +18,16 @@ cabal-version:       >=1.10
 
 executable logix
   main-is:           Main.hs
-  other-modules:     Logix.PropEval
+  other-modules:     Logix.PropDefs 
+                     Logix.PropEval
                      Logix.PropParser
                      Logix.PropTransform
                      Logix.PropContext
                      Logix.Tokenizer
                      Logix.Unwrap
                      Logix.Utils
+                     Logix.Test
+                     Logix.Sim
 
   -- other-extensions:
   build-depends:

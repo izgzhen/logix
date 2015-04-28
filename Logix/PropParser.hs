@@ -1,20 +1,9 @@
 module Logix.PropParser where
-
+import Logix.PropDefs
 import Logix.Tokenizer
 import Data.List.Split
 import Data.Maybe
 import Data.Either
-
-data Formula = Imply Formula Formula
-			 | Term String
-			 | Not Formula
-			 | Empty deriving (Eq)
-
-instance Show Formula where
-	show (Term str) = str
-	show (Not f) = "¬" ++ show f
-	show (Imply front end) = "(" ++ show front ++ " → " ++ show end ++ ")"
-	show Empty = ""
 
 parseLine :: String -> EitherS String -- Input and Response
 parseLine ln = do

@@ -19,14 +19,14 @@
 -}
 
 module Logix.Unwrap where
+import Logix.PropDefs
 import Logix.PropParser
 import Logix.Tokenizer
 import Logix.PropContext
 import Logix.PropTransform
+import Logix.Test
 import Logix.Utils
 import qualified Data.Map as M
-
-data Proof = Proof PropT [Step] deriving (Show)
 
 type ScanningState = ([Step], [Step], (Formula, Int), Formula) -- Orignal Steps, New Steps, Tracer Pair, Assumption
 emptyScanningState = ([], [], (Empty, 0), Empty)
@@ -102,19 +102,3 @@ unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) args offset = 
 		steps' = map (\(PropT slots body, stratInst) -> (PropT args' $ replacer body slots, updateStrat stratInst)) steps
 		updateStrat :: Strategy -> Strategy
 		updateStrat (Strategy sk is) = Strategy sk $ map (+offset) is
-
-proofsToApply :: M.Map StrategyKind Proof
-proofsToApply = M.fromList [
-		(Negfront, Proof (PropT ["p", "q"] (Imply (Term "p") (Term "q")))	
-			[ (formulaToProp $ Imply (Term "p") (Term "p"), Strategy L1 [0])
-			, (formulaToProp $ Imply (Term "p") (Term "q"), Strategy L2 [1])
-			, (formulaToProp $ Imply (Term "p") (Imply (Term "p") (Term "q")), Strategy L3 [2])
-			])
-	]
-
-argsToTest = [Term "a", Term "b"]
-
-stepsToTest :: [Step]
-stepsToTest = [ (formulaToProp $ Term "p", Strategy Assume [0])
-	, (formulaToProp $ Imply (Term "p") (Term "a"), Strategy MpRule [0])
-	, (formulaToProp $ Imply (Term "p") (Imply (Term "p") (Term "a")), Strategy Negfront [2]) ]

@@ -1,8 +1,8 @@
 module Logix.PropTransform where
-
+import Logix.PropDefs
 import Logix.PropParser
 import Logix.Tokenizer
-import Logix.PropContext
+-- import Logix.PropContext
 import Logix.Utils
 import Data.Char
 import Data.List
@@ -10,7 +10,6 @@ import Data.Either
 import qualified Data.Map as M
 import Control.Monad
 import Control.Monad.State
-
 
 -------- PURE FUNCTIONS ----------------
 
@@ -35,15 +34,6 @@ extractArgs (Not f) = unique $ extractArgs f
 formulaToProp :: Formula -> PropT
 formulaToProp f = PropT (extractArgs f) f
 
--- Add an axiom to the context
-addAxiom :: [Token] -> Evaluator (EitherS ())
-addAxiom = \tks -> parseAxiom tks <||||> (\(name, args, body) -> do
-    if sort (extractArgs body) == sort args then do
-            addSymbol name (PropT args body) []
-            return $ Right ()
-        else return $ Left "arguments not matching in axiom")
-
-
 termsToNames :: [Formula] -> [String]
 termsToNames [] = []
 termsToNames (Term s : ts) = s : termsToNames ts
@@ -51,3 +41,8 @@ termsToNames _ = error "termsToNames error"
 
 unStep :: Step -> Formula
 unStep (PropT _ body, _) = body
+
+
+strToProp :: String -> PropT
+strToProp str = let Right (formula, _) = tokenize str >>= parseFormula
+    in formulaToProp formula

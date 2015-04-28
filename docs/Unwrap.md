@@ -1,10 +1,9 @@
 # The "Unwrap" Process
-> PB13207022 张震
 
 ## Introduction
 Always, we as human can easily prove a proposition by using some "high-level" or "indirect" proving techniques, like the deduction theorem（演绎定理） or negation front theorem (否定前件律).
 
-But, the fact it that, we need its most primitive form sometimes.
+But, the fact is that, we need its most primitive form sometimes.
 
 For theorems like "negation front theorem", since its prove involves no participation of "deduction theorem", so intuitively, we can do a simply substitution into the hardwired proving pattern.
 
@@ -27,7 +26,7 @@ Step|Proposition|Reason
 ... | ... |...
 ($$a_1$$) | $$p \to A$$ | $$T_1$$
 ($$a_1 + 1$$) | $$p$$ | assumption
-($$a_1 + 2$$) | $$A$$ | MP with $$a_1 + 1$$, $$a_1 + 1$$
+($$a_1 + 2$$) | $$A$$ | MP with $$a_1$$, $$a_1 + 1$$
 ... | ... | ...
 ($$a_2$$) | $$A \to B$$ | $$T_2$$
 ($$a_2 + 1$$) | $$B$$ | MP with $$a_1 + 2$$, $$a_2$$
@@ -60,7 +59,7 @@ I used "with a harmless prefix" base on the fact that
 Step|Proposition|Reason
 --- | --------- | ----
 1   | $$p$$ | $$T$$
-2   | $$p -> (w \to p)$$ | Positive Front Theorem
+2   | $$p \to (w \to p)$$ | Positive Front Theorem
 3   | $$(w \to p)$$ | MP with 1, 2
 
 Here, we add a "harmless" $$w$$ to the front of $$p$$
@@ -77,7 +76,7 @@ Which is just like a "distribution law".
 
 ### The ideas behind the unwrapping process
 
-And I needs to give your a more abstract view of this method. From the formal example above, we can see that there seem to be **some kind of chain**, which links the propositions together. All usual
+And I need to give you a more abstract view of this method. From the formal example above, we can see that there seem to be **some kind of chain**, which links the propositions together. All usual
 
 Step|Proposition|Reason
 --- | --------- | ----
