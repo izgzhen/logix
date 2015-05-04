@@ -42,7 +42,6 @@ termsToNames _ = error "termsToNames error"
 unStep :: Step -> Formula
 unStep (PropT _ body, _) = body
 
-
 strToProp :: String -> PropT
 strToProp str = let Right (formula, _) = tokenize str >>= parseFormula
     in formulaToProp formula
