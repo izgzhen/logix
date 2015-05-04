@@ -63,6 +63,10 @@ extractNamedFormula (TkIdent ident) = do
                 Just (PropT _ body) -> Right body
 extractNamedFormula _ = return $ Left "Only identifier can be extracted"
 
+-- Output Debug Info ---
+debugInfo :: Show a => PropContext -> a -> Evaluator (Maybe String, PropContext)
+debugInfo ctx x = return $ (Just $ "[DEBUG]: " ++ show x, ctx)
+
 -- apply theorem to a set of formulas, getting the generated body
 applyTheorem :: PropT -> [Formula] -> EitherS PropT
 applyTheorem (PropT args body) formulas = do
@@ -114,14 +118,17 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
                     return $ Right (Just ("Proved: " ++ name ++ " " ++ show body), defaultPropCtx)
                     else return $ Left "Not proved yet!"
 
-    TkTac MpSyn -> do
-            formulasE <- mapM extractNamedFormula $ filter (/= TkSyn Comma) tks
-            let formulas = rights formulasE
-            if length formulas == 2 then do
-                    let (f1 : f2 : _) = formulas
-                    (parseIndex formulas) <||||> (\parsedIndex ->
-                        mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx (Strategy MpRule $ parsedIndex)))
-                else return $ Left "wrong MP arguments!"
+    TkTac Mp -> do
+        let parsedIndex = parseIndex $ filter (/= TkSyn Comma) tks
+        case parsedIndex of
+            Right parsedIndex' -> do
+                formulasE <- mapM extractNamedFormula tks
+                let formulas = rights formulasE
+                if length formulas == 2 then do
+                        let (f1 : f2 : _) = formulas
+                        mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx (Strategy MpRule parsedIndex'))
+                    else return $ Left "wrong MP arguments!"
+            Left errMsg -> return $ Left errMsg
 
     TkIdent ident -> analyzeIdent ident <|||||> (\(strat, prop) -> 
         parseFormulas tks <||||> applyProp prop strat)

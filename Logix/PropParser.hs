@@ -28,13 +28,14 @@ parseArgs (TkIdent ident : TkSyn Comma : tks) = do
 parseArgs (TkIdent ident : TkSyn RP : tks) = return ([ident], tks)
 parseArgs tks = Left $ "Error parsing args" ++ show tks
 
-parseIndex :: [Formula] -> EitherS [Int]
+parseIndex :: [Token] -> EitherS [Int]
 parseIndex [] = Right []
-parseIndex (Term ('S':indexStr) : fs) = case reads indexStr :: [(Int, String)] of
+parseIndex (TkIdent ('S':indexStr) : fs) = case reads indexStr :: [(Int, String)] of
 	(num, ""):[] -> do
 		pfs <- parseIndex fs
 		return  (num : pfs)
 	_ -> fail  "Not proper numerical arguments"
+parseIndex x = fail $ "illegal index with " ++ show x
 
 parseFormulas :: [Token] -> EitherS [Formula]
 parseFormulas tks = do
