@@ -19,6 +19,7 @@ maybePropName Nothing = Nothing
 preloadedAxioms = M.fromList [
       ("L1", (strToProp "p -> (q -> p)", []))
     , ("L2", (strToProp "(p -> (q -> r)) -> ((p -> q) -> (p -> r))", []))
+    , ("L3", (strToProp "(p -> q) -> (!q -> !p)", []))
     ] :: SymbolContext
 
 -- Default Settings

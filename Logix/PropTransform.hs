@@ -43,5 +43,9 @@ unStep :: Step -> Formula
 unStep (PropT _ body, _) = body
 
 strToProp :: String -> PropT
-strToProp str = let Right (formula, _) = tokenize str >>= parseFormula
-    in formulaToProp formula
+strToProp str = formulaToProp . strToFormula $ str
+
+strToFormula :: String -> Formula
+strToFormula str = case tokenize str >>= parseFormula of
+        Right (formula, []) -> formula
+        _                   -> error $ "illegal string to formula: " ++ str
