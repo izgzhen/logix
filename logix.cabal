@@ -2,13 +2,13 @@
 --  see http://haskell.org/cabal/users-guide/
 
 name:                logix
-version:             0.1.0.0
+version:             0.0.1
 -- synopsis:
 -- description:
 homepage:            https://github.com/izgzhen/logix
 license:             MIT
 license-file:        LICENSE
-author:              张震
+author:              Zhen Zhang
 maintainer:          izgzhen@gmail.com
 -- copyright:
 category:            Math

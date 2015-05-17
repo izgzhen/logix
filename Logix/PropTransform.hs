@@ -2,7 +2,6 @@ module Logix.PropTransform where
 import Logix.PropDefs
 import Logix.PropParser
 import Logix.Tokenizer
--- import Logix.PropContext
 import Logix.Utils
 import Data.Char
 import Data.List
@@ -40,7 +39,7 @@ termsToNames (Term s : ts) = s : termsToNames ts
 termsToNames _ = error "termsToNames error"
 
 unStep :: Step -> Formula
-unStep (PropT _ body, _) = body
+unStep (Step (PropT _ body) _ _) = body
 
 strToProp :: String -> PropT
 strToProp str = formulaToProp . strToFormula $ str

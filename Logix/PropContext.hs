@@ -43,7 +43,10 @@ lookUpRecordByString ('S':indexIdent) = do
     (sCtx, sRecord) <- get
     case reads indexIdent :: [(Int, String)] of
         (num, ""):[] -> do
-            return $ liftM fst $ M.lookup num sRecord
+                let mStep = M.lookup num sRecord
+                case mStep of
+                    Just _ -> return Nothing
+                    Nothing -> return Nothing
         _ -> return Nothing
 lookUpRecordByString _ = return Nothing
 
@@ -64,7 +67,7 @@ addSymbol name prop steps = do
 addRecord :: Int -> PropT -> Strategy -> Evaluator ()
 addRecord index prop strat = do
     (sCtx, sRecord) <- get
-    put $ (sCtx, M.insert index (prop, strat) sRecord)
+    put $ (sCtx, M.insert index (Step prop strat index) sRecord)
 
 gatherRecords :: Evaluator [Step]
 gatherRecords = do

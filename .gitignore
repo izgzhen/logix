@@ -1,5 +1,5 @@
 dist
-
+.tags
 cabal.sandbox.config
 
 *.o

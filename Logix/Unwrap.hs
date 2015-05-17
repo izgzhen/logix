@@ -11,11 +11,17 @@
 {-
     TODOs:
 
-    1. Make some functions which could facilitate the testings -- Done
-    2. Test the correctness of the mp rule unwrapping prototype -- Done
-    3. Add necessary indexing information to the types
-    4. Add the indexing features into the mp unwrapping
-    5. Test the correctness of mp unwrapping with indexing
+    3. Encode the indexing information correctly
+
+        * Index is the numbering of each step in a proof
+        * It could appear as the attribute of the step itself, or as the
+          target list of a `Strategy`
+
+       So, the core problem is how to maintain the indexing information explicitly
+       or implicitly; For implicit ordering, you needs to count or resursively carrying
+       the information during transformation of proofs, but too explicitly will also
+       bring more troubles to the transformation itself. Till now, I as still using implicit
+       method, but it turns out to be difficult to use at some times.
 -}
 
 module Logix.Unwrap where
@@ -28,9 +34,11 @@ import Logix.Utils
 import qualified Data.Map as M
 
 --------------- / UNWRAPPING BASED ON DEDUCTION / ---------------
+type Trace = (Formula, Int) -- The traced expression and its index
+type ScanningState = ([Step], [Step], Trace, Formula, Int) -- Orignal Steps, New Steps, Tracer Pair, Assumption, Step Counter
+emptyScanningState = ([], [], (Empty, 0), Empty, 0)
 
-type ScanningState = ([Step], [Step], (Formula, Int), Formula) -- Orignal Steps, New Steps, Tracer Pair, Assumption
-emptyScanningState = ([], [], (Empty, 0), Empty)
+undefinedIndex = 0
 
 -- With initial implied
 unwrapDeduction :: [Step] -> Formula -> [Step]
@@ -38,37 +46,43 @@ unwrapDeduction steps assump = unwrapDeduction' $ makeInitial steps assump
 
 -- From current state to next state
 unwrapDeduction' :: ScanningState -> [Step]
-unwrapDeduction' (thisStep : oSteps, nSteps, (lastTracedF, tIndex), assumption) = 
-    unwrapDeduction' (oSteps', nSteps', pair, assumption)
+unwrapDeduction' (thisStep : oSteps, nSteps, (lastTracedF, tIndex), assumption, newIndex) = 
+    unwrapDeduction' (oSteps', nSteps', pair, assumption, newIndex')
     where
-        (oSteps', nSteps', pair) = case checkUsed thisStep lastTracedF of
-            Just (a, b) -> (oSteps'', nSteps ++ [(formulaToProp $ f1, s1), (formulaToProp $ f2, s2), (formulaToProp $ f3, s3)], (b, 0))
+        (oSteps', nSteps', pair, newIndex') = case checkUsed thisStep (lastTracedF, tIndex) of
+            Just (a, b, bi) -> (oSteps''
+                               , nSteps ++
+                                    [ Step (formulaToProp f1) s1 newIndex
+                                    , Step (formulaToProp f2) s2 (newIndex + 1)
+                                    , Step (formulaToProp f3) s3 (newIndex + 2)]
+                               , (lastTracedF', tIndex'), newIndex + 3)
                 where
                     f1 = Imply assumption (Imply a b)
                     f2 = Imply (Imply assumption a) (Imply assumption b)
                     f3 = Imply assumption b
                     s1 = Strategy HarmlessPre []
-                    s2 = Strategy L2MP []
-                    s3 = Strategy MpRule []
-
+                    s2 = Strategy L2MP [newIndex]
+                    s3 = Strategy MpRule [tIndex, newIndex + 1]
+                    lastTracedF' = b
+                    tIndex' = bi
                     oSteps'' = let (s : oSteps''') = oSteps in if unStep s == b then oSteps''' else error "not implemented yet"
 
-            Nothing -> (oSteps, nSteps ++ [thisStep], (lastTracedF, tIndex))
+            Nothing -> (oSteps, nSteps ++ [thisStep], (lastTracedF, tIndex), newIndex + 1)
 
-unwrapDeduction' ([], nS, _, _) = nS
+unwrapDeduction' ([], nS, _, _, _) = nS
 
 -- Change "B" into "p -> B", FIXME: This only works at "closely" next step
-changeConclusion :: ([Step], (Formula, Int)) -> Formula -> Formula -> ([Step], (Formula, Int))
+changeConclusion :: ([Step], (Formula, Int)) -> Formula -> Trace -> ([Step], (Formula, Int))
 changeConclusion ([], x) _ _ = ([], x)
-changeConclusion original@(((PropT _ f, strat) : ss), x) assumption lastTracedF =
+changeConclusion original@((Step (PropT _ f) strat oi : ss), x) assumption (lastTracedF, _) =
     if f == lastTracedF then
-        (((formulaToProp $ Imply assumption lastTracedF, strat) : ss), x)
+        ((Step (formulaToProp $ Imply assumption lastTracedF) strat oi) : ss, x)
         else original
 
 -- Check if current step use the lasted traced formula as the condition of implication
-checkUsed   :: Step -> Formula -> Maybe (Formula, Formula)
-checkUsed (PropT args stepbody, Strategy sk is) lastTracedF = case stepbody of
-    Imply a b -> if a == lastTracedF then Just (a, b) else Nothing
+checkUsed   :: Step -> Trace -> Maybe (Formula, Formula, Int)
+checkUsed (Step (PropT args stepbody) (Strategy sk is) i) (lastTracedF, _) =    case stepbody of
+    Imply a b -> if a == lastTracedF then Just (a, b, i) else Nothing
     _ -> Nothing
 
 -- Capture the assumption and enter intialization stage 2
@@ -86,13 +100,12 @@ makeInitial2 assumption (s:ss) = case unStep s of
 -- Drop the orginal conclusion
 makeInitial3 assumption _ [] = emptyScanningState
 makeInitial3 assumption a (s:ss) = if unStep s == a then
-    (ss, [], (a, 0), assumption)
+    (ss, [], (a, 0), assumption, 0)
     else makeInitial3 assumption a ss
 
 -- Insert the scanned step
 insertStep :: Step -> ScanningState -> ScanningState
-insertStep s (oss, nss, ltf, ti) = (s:oss, nss, ltf, ti)
-
+insertStep s (oss, nss, ltf, ti, i) = (s:oss, nss, ltf, ti, i + 1)
 
 ---------- / UNWRAPPING BASED ON PROOF / ------------
 
@@ -106,18 +119,19 @@ unwrapSteps proofs steps = fst $ foldr transform ([], 0) steps
                 Proof _ s' = unwrapStep step i'
 
         unwrapStep :: Step -> Int -> Proof
-        unwrapStep step@(prop@(PropT args stepbody), Strategy sk _) index = case M.lookup sk proofs of
+        unwrapStep step@(Step prop@(PropT args stepbody) (Strategy sk _) undefinedIndex) index = case M.lookup sk proofs of
             Just proof -> unwrapArgs proof (map Term args) index
             Nothing -> Proof prop [step]
 
 unwrapArgs :: Proof -> [Formula] -> Int -> Proof
-unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) args offset = case ifSameLength args proofSlots of
-    Right _ -> Proof (PropT args' proofDefBody') steps'
-    Left _ -> error "Wrong Unwrapping"
-    where
-        replacer = \toChange slots -> foldr replaceIn toChange $ zip slots args
-        proofDefBody' = replacer proofDefBody proofSlots
-        args' = termsToNames args
-        steps' = map (\(PropT slots body, stratInst) -> (PropT args' $ replacer body slots, updateStrat stratInst)) steps
-        updateStrat :: Strategy -> Strategy
-        updateStrat (Strategy sk is) = Strategy sk $ map (+ offset) is
+unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) args offset =
+    case ifSameLength args proofSlots of
+        Right _ -> Proof (PropT args' proofDefBody') steps'
+        Left _ -> error "Wrong Unwrapping"
+        where
+            replacer = \toChange slots -> foldr replaceIn toChange $ zip slots args
+            proofDefBody' = replacer proofDefBody proofSlots
+            args' = termsToNames args
+            steps' = map (\(Step (PropT slots body) stratInst undefinedIndex) -> Step (PropT args' $ replacer body slots) (updateStrat stratInst) undefinedIndex) steps
+            updateStrat :: Strategy -> Strategy
+            updateStrat (Strategy sk is) = Strategy sk $ map (+ offset) is

@@ -55,13 +55,12 @@ expandFormula (Not f') = liftM Not (expandFormula f')
 expandFormula (Imply f1 f2) = liftM2 Imply (expandFormula f1) (expandFormula f2)
 
 -- Extract the body of named proposition from context by a token, handling all exceptions
-extractNamedFormula :: Token -> Evaluator (EitherS Formula)
-extractNamedFormula (TkIdent ident) = do
-            maybeProp <- lookUpRecordByString ident
-            return $ case maybeProp of
-                Nothing -> Left "Not a defined name"
-                Just (PropT _ body) -> Right body
-extractNamedFormula _ = return $ Left "Only identifier can be extracted"
+extractNamedFormula :: Int -> Evaluator (EitherS Formula)
+extractNamedFormula i = do
+    maybeProp <- lookUpRecord i
+    return $ case maybeProp of
+        Nothing -> Left "Not a defined name"
+        Just step -> Right $ unStep step
 
 -- Output Debug Info ---
 debugInfo :: Show a => PropContext -> a -> Evaluator (Maybe String, PropContext)
@@ -80,7 +79,7 @@ addNewProp applied propCtx strat = do
         Nothing -> return (Just "Not in PropContext!", propCtx)
         Just (name, body, i) -> do
             addRecord i applied strat
-            return (Just ("S" ++ show i ++ " " ++ show applied), plusOne propCtx)
+            return (Just ("S" ++ show i ++ " " ++ show applied ++ " with " ++ show strat), plusOne propCtx)
 
 -- "Check" Command
 evalCheck :: [Token] -> Evaluator String
@@ -111,7 +110,7 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
         case propCtx of
             Nothing -> return $ Left "Not in PropContext!"
             Just (name, body, i) -> do
-                (Just (body', _)) <- lookUpRecord (i - 1)
+                (Just (Step body' _ _)) <- lookUpRecord (i - 1)
                 records <- gatherRecords
                 if body == body' then do
                     addSymbol name body records
@@ -122,12 +121,12 @@ evaluate (Just input) propCtx = tokenize input <||||> \(tk:tks) -> case tk of
         let parsedIndex = parseIndex $ filter (/= TkSyn Comma) tks
         case parsedIndex of
             Right parsedIndex' -> do
-                formulasE <- mapM extractNamedFormula tks
+                formulasE <- mapM extractNamedFormula parsedIndex'
                 let formulas = rights formulasE
                 if length formulas == 2 then do
                         let (f1 : f2 : _) = formulas
                         mpApply f1 f2 <||> (\retF -> addNewProp (formulaToProp retF) propCtx (Strategy MpRule parsedIndex'))
-                    else return $ Left "wrong MP arguments!"
+                    else return $ Left $ "wrong MP arguments -- " ++ show parsedIndex
             Left errMsg -> return $ Left errMsg
 
     TkIdent ident -> analyzeIdent ident <|||||> (\(strat, prop) -> 

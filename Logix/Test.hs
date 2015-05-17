@@ -25,11 +25,14 @@ testId = prove idRuleProof idRuleGoal
 --------- / UNWRAP PROCESS PROVING / -------
 
 {-
-  Currently, the chronological order is strictly limited,
+  Currently, the chronological order is strictly limited
 -}
 
+constructSnippet :: [(PropT, Strategy)] -> [Step]
+constructSnippet = map (\(i, (a, b)) -> (Step a b i)) . zip [0..]
+
 unwrapStepsExample :: [Step]
-unwrapStepsExample = [
+unwrapStepsExample =  constructSnippet [
     (strToProp "p", Strategy Assume [])
   , (strToProp "p -> A", Strategy L1 [])
   , (strToProp "A", Strategy MpRule [0, 1])
@@ -40,13 +43,13 @@ unwrapStepsExample = [
 unwrapAssumpExample :: Formula
 unwrapAssumpExample = Term "p"
 
-unwrapTest = unwrapDeduction unwrapStepsExample unwrapAssumpExample
+unwrapTest = mapM_ print $ unwrapDeduction unwrapStepsExample unwrapAssumpExample
 
 ----------- / UNWRAP BASED ON PROOF EXAMPLE / -------------
 
 
 unwrapProofBasedProofs = M.fromList [
-    (Id_rule, Proof (strToProp "p -> p") [
+    (Id_rule, Proof (strToProp "p -> p") $ constructSnippet [
       (strToProp "(p -> ((p -> p) -> p))", Strategy L1 [])
     , (strToProp "((p -> ((p -> p) -> p)) -> ((p -> (p -> p)) -> (p -> p)))", Strategy L2 [])
     , (strToProp "((p -> (p -> p)) -> (p -> p))", Strategy MpRule [0, 1])

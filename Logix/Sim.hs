@@ -44,7 +44,7 @@ prove proof goal = do
     case result of
         Right steps -> do
             putStrLn "Steps:"
-            putStrLn $ concat $ map (\(PropT _ b, _) -> show b ++ "\n") steps
+            putStrLn $ concat $ map (\step -> show step ++ "\n") steps
             case reverse steps of
                 (s:_) -> do
                     case goal of
@@ -55,5 +55,4 @@ prove proof goal = do
                                 putStrLn "Not proved"
                         _ -> putStrLn "Invalid Goal"
                 _ -> putStrLn "No steps!"
-        _ -> putStrLn "Mistakes in proving"
-
+        Left errMsg -> putStrLn $ "Mistakes in proving: " ++ errMsg
