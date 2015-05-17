@@ -1,10 +1,13 @@
-module Logix.PropEval where
-import Logix.PropDefs
-import Logix.PropParser
+module Logix.Eval where
+
+import Logix.Definition
+import Logix.Parser
 import Logix.Tokenizer
-import Logix.PropContext
-import Logix.PropTransform
+import Logix.Context
+import Logix.Transform
 import Logix.Utils
+import Logix.Config
+
 import Data.Char
 import Data.List
 import Data.Either
@@ -30,19 +33,6 @@ mpApply _ _ = mpErr
 mpErr = Left "MP Rule Applying Incorrect"
 
 -------- IMPURE FUNTIONS ---------------
-
-
-skMap' = M.fromList
-    [ ("mp", MpRule)
-    , ("negfront", Negfront)
-    , ("L1", L1)
-    , ("L2", L2)
-    , ("L3", L3)
-    , ("hp", HarmlessPre)
-    , ("L2mp", L2MP)
-    , ("assume", Assume)
-    ] :: M.Map String StrategyKind
-
 
 -- Expand the formula based on current context
 expandFormula :: Formula -> Evaluator Formula
@@ -79,7 +69,7 @@ addNewProp applied propCtx strat = do
         Nothing -> return (Just "Not in PropContext!", propCtx)
         Just (name, body, i) -> do
             addRecord i applied strat
-            return (Just ("S" ++ show i ++ " " ++ show applied ++ " with " ++ show strat), plusOne propCtx)
+            return (Just (sShow i ++ " " ++ show applied ++ " with " ++ show strat), plusOne propCtx)
 
 -- "Check" Command
 evalCheck :: [Token] -> Evaluator String
@@ -94,6 +84,11 @@ evalCheck (tk:tks) = do
                 Nothing -> "No such identifier " ++ name
         _ -> return $ "illegal identifier: " ++ show tk
     return $ thisStr ++ restStr
+
+
+-- Main body of evalutation
+-- FIXME: The input should not be strings, the REPL should make the interface in its part
+--        So the silly function "unTokenize" will not appear in Logix.Sim module
 
 evaluate :: Maybe String -> PropContext -> Evaluator (EitherS (Maybe String, PropContext))
 evaluate Nothing propCtx = return (Right (Nothing, propCtx))

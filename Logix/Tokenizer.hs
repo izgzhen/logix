@@ -4,8 +4,7 @@ import Data.Char
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Either
-
-type EitherS = Either String
+import Logix.Utils
 
 data Keyword = Check | Axiom | Theorem deriving (Show, Eq, Enum)
 

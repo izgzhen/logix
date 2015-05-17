@@ -1,7 +1,6 @@
-module Logix.Test where
-import Logix.PropTransform
-import Logix.PropDefs
-import Logix.Sim
+import Logix.Transform
+import Logix.Definition
+import Logix.Simulation
 import Logix.Unwrap
 import qualified Data.Map as M
 
@@ -19,14 +18,12 @@ idRuleProof = [
 idRuleGoal :: PropContext
 idRuleGoal = Just ("id_rule", strToProp "p -> p", 0)
 
-testId :: IO ()
-testId = prove idRuleProof idRuleGoal
+testAutomaticProving :: IO ()
+testAutomaticProving = prove idRuleProof idRuleGoal
 
 --------- / TEST UNWRAP DEDUCTION / -------
 
-{-
-  Currently, the chronological order is strictly limited
--}
+-- FIXME: Currently, the chronological order is strictly limited
 
 constructSnippet :: [(PropT, Strategy)] -> [Step]
 constructSnippet = map (\(i, (a, b)) -> (Step a b i)) . zip [0..]
@@ -49,7 +46,7 @@ testUnwrapDeduction = mapM_ print $ unwrapDeduction unwrapStepsExample unwrapAss
 ----------- / TEST UNWRAP BASED ON PROOF / -------------
 
 unwrapProofBasedProofs = M.fromList [
-    (Id_rule, Proof (strToProp "p -> p") $ constructSnippet [
+    (IdRule, Proof (strToProp "p -> p") $ constructSnippet [
       (strToProp "(p -> ((p -> p) -> p))", Strategy L1 [])
     , (strToProp "((p -> ((p -> p) -> p)) -> ((p -> (p -> p)) -> (p -> p)))", Strategy L2 [])
     , (strToProp "((p -> (p -> p)) -> (p -> p))", Strategy MpRule [0, 1])
@@ -58,7 +55,17 @@ unwrapProofBasedProofs = M.fromList [
     ])
   ]
 
-unwrapProofBasedSteps = [Step (strToProp "p -> p") (Strategy Id_rule []) 0]
+unwrapProofBasedSteps = [Step (strToProp "p -> p") (Strategy IdRule []) 0]
 
 testUnwrapProofBased :: IO ()
 testUnwrapProofBased = mapM_ print $ unwrapSteps unwrapProofBasedProofs unwrapProofBasedSteps 
+
+
+main :: IO ()
+main = do
+  print "Test Unwrapping with Proof Subsitution:"
+  testUnwrapProofBased
+  print "Test Unwrapping with Deduction"
+  testUnwrapDeduction
+  print "Test Automatic Proving:"
+  testAutomaticProving

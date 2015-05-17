@@ -1,24 +1,15 @@
-module Logix.Sim where
-import Logix.PropDefs
-import Logix.PropContext
-import Logix.PropEval
+module Logix.Simulation where
+
+import Logix.Definition
+import Logix.Config
+import Logix.Context
+import Logix.Eval
 import Logix.Utils
-import Logix.PropTransform
+import Logix.Transform
 import Logix.Tokenizer
+
 import Control.Monad.State
-
 import qualified Data.Map as M
-
-skMap = M.fromList
-    [ (MpRule, "mp")
-    , (Negfront, "negfront")
-    , (L1, "L1")
-    , (L2, "L2")
-    , (L3, "L3")
-    , (HarmlessPre, "hp")
-    , (L2MP, "L2mp")
-    , (Assume, "assume")
-    ] :: M.Map StrategyKind String
 
 unTokenize :: [(String, StrategyKind)] -> [String]
 unTokenize [] = []
@@ -31,6 +22,8 @@ unTokenize ((s, sk):ps) = p' ++ unTokenize ps
 simulate' :: [(String, StrategyKind)] -> PropContext -> Evaluator (EitherS [Step])
 simulate' sp = simulate $ unTokenize sp
 
+-- Core of simulation, feeding a set of string into evaluator and simulate the usual
+-- REPL loop, finally get the proved conclusion out
 simulate :: [String] -> PropContext -> Evaluator (EitherS [Step])
 simulate (s:ss) ctx = evaluate (Just s) ctx <|||||> \(_, propCtx) -> simulate ss propCtx
 simulate [] ctx = do -- Final Step

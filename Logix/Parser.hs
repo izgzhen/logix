@@ -1,6 +1,8 @@
-module Logix.PropParser where
-import Logix.PropDefs
+module Logix.Parser where
+import Logix.Definition
 import Logix.Tokenizer
+import Logix.Utils
+
 import Data.List.Split
 import Data.Maybe
 import Data.Either

@@ -10,19 +10,20 @@
 
 
 module Logix.Unwrap where
-import Logix.PropDefs
-import Logix.PropParser
+import Logix.Definition
+import Logix.Parser
 import Logix.Tokenizer
-import Logix.PropContext
-import Logix.PropTransform
+import Logix.Context
+import Logix.Transform
 import Logix.Utils
 import qualified Data.Map as M
 
 --------------- / UNWRAPPING BASED ON DEDUCTION / ---------------
 
-type Trace = (Formula, Int) -- The traced expression and its index
-type ScanningState = ([Step], [Step], Trace, Formula, Int) -- Orignal Steps, New Steps, Tracer Pair, Assumption, Step Counter
-type Index = Int
+type Trace = (Formula, Index) -- The traced expression and its index
+type ScanningState = ([Step], [Step], Trace, Formula, Index)
+-- Orignal Steps, New Steps, Tracer Pair, Assumption, Step Counter
+
 emptyScanningState = ([], [], (Empty, 0), Empty, 0)
 
 -- With initial implied
@@ -31,16 +32,16 @@ unwrapDeduction steps assump = unwrapDeduction' $ makeInitial steps assump
 
 -- From current state to next state
 unwrapDeduction' :: ScanningState -> [Step]
-unwrapDeduction' (thisStep : oSteps, nSteps, (lastTracedF, tIndex), assumption, newIndex) = 
+unwrapDeduction' (thisStep : oSteps, nSteps, (traced, tIndex), assumption, newIndex) = 
     unwrapDeduction' (oSteps', nSteps', pair, assumption, newIndex')
     where
-        (oSteps', nSteps', pair, newIndex') = case checkUsed thisStep (lastTracedF, tIndex) of
+        (oSteps', nSteps', pair, newIndex') = case checkUsed thisStep (traced, tIndex) of
             Just (a, b, bi) -> (oSteps''
                                , nSteps ++
                                     [ Step (formulaToProp f1) s1 newIndex
                                     , Step (formulaToProp f2) s2 (newIndex + 1)
                                     , Step (formulaToProp f3) s3 (newIndex + 2)]
-                               , (lastTracedF', tIndex'), newIndex + 3)
+                               , (traced', tIndex'), newIndex + 3)
                 where
                     f1 = Imply assumption (Imply a b)
                     f2 = Imply (Imply assumption a) (Imply assumption b)
@@ -48,26 +49,30 @@ unwrapDeduction' (thisStep : oSteps, nSteps, (lastTracedF, tIndex), assumption, 
                     s1 = Strategy HarmlessPre []
                     s2 = Strategy L2MP [newIndex]
                     s3 = Strategy MpRule [tIndex, newIndex + 1]
-                    lastTracedF' = b
+                    traced' = b
                     tIndex' = bi
-                    oSteps'' = let (s : oSteps''') = oSteps in if unStep s == b then oSteps''' else error "not implemented yet"
+                    oSteps'' = let (s : oSteps''') = oSteps in
+                        if unStep s == b then
+                            oSteps'''
+                            else error "[UNWRAPPING]: the better tracing scheme is not implemented yet"
 
-            Nothing -> (oSteps, nSteps ++ [thisStep], (lastTracedF, tIndex), newIndex + 1)
+            Nothing -> (oSteps, nSteps ++ [thisStep], (traced, tIndex), newIndex + 1)
 
 unwrapDeduction' ([], nS, _, _, _) = nS
 
--- Change "B" into "p -> B", FIXME: This only works at "closely" next step
-changeConclusion :: ([Step], (Formula, Int)) -> Formula -> Trace -> ([Step], (Formula, Int))
+-- Change "B" into "p -> B"
+-- FIXME: This only works at "closely" next step
+changeConclusion :: ([Step], (Formula, Index)) -> Formula -> Trace -> ([Step], (Formula, Index))
 changeConclusion ([], x) _ _ = ([], x)
-changeConclusion original@((Step (PropT _ f) strat oi : ss), x) assumption (lastTracedF, _) =
-    if f == lastTracedF then
-        ((Step (formulaToProp $ Imply assumption lastTracedF) strat oi) : ss, x)
+changeConclusion original@((Step (PropT _ f) strat oi : ss), x) assumption (traced, _) =
+    if f == traced then
+        ((Step (formulaToProp $ Imply assumption traced) strat oi) : ss, x)
         else original
 
 -- Check if current step use the lasted traced formula as the condition of implication
-checkUsed   :: Step -> Trace -> Maybe (Formula, Formula, Int)
-checkUsed (Step (PropT args stepbody) (Strategy sk is) i) (lastTracedF, _) =    case stepbody of
-    Imply a b -> if a == lastTracedF then Just (a, b, i) else Nothing
+checkUsed   :: Step -> Trace -> Maybe (Formula, Formula, Index)
+checkUsed (Step (PropT args stepbody) (Strategy sk is) i) (traced, _) =    case stepbody of
+    Imply a b -> if a == traced then Just (a, b, i) else Nothing
     _ -> Nothing
 
 -- Capture the assumption and enter intialization stage 2
@@ -94,10 +99,11 @@ insertStep s (oss, nss, ltf, ti, i) = (s:oss, nss, ltf, ti, i + 1)
 
 ---------- / UNWRAPPING BASED ON PROOF / ------------
 
+-- Unwrap a series of steps with advanced strategies into primitive steps
 unwrapSteps :: M.Map StrategyKind Proof -> [Step] -> [Step]
 unwrapSteps proofs steps = fst $ foldr transform ([], 0) steps
     where
-        transform :: Step -> ([Step], Int) -> ([Step], Int)
+        transform :: Step -> ([Step], Index) -> ([Step], Index)
         transform step (ss, i) = (s' ++ ss, i + length s' - 1)
             where
                 Proof _ s' = unwrapStep step
@@ -105,18 +111,19 @@ unwrapSteps proofs steps = fst $ foldr transform ([], 0) steps
         unwrapStep :: Step -> Proof
         unwrapStep step@(Step prop@(PropT args stepbody) (Strategy sk _) si) =
             case M.lookup sk proofs of
-                Just proof -> unwrapArgs proof si (map Term args)
+                Just proof -> injectProof proof si (map Term args)
                 Nothing -> Proof prop [step]
 
-unwrapArgs :: Proof -> Index -> [Formula] -> Proof
-unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) offset args =
+-- inject a proof into a step, based on some information
+injectProof :: Proof -> Index -> [Formula] -> Proof
+injectProof proofDef@(Proof (PropT proofSlots proofDefBody) steps) offset args =
     case ifSameLength args proofSlots of
         Right _ -> Proof (PropT args' proofDefBody') steps'
         Left _ -> error "Wrong Unwrapping"
         where
             replacer = \toChange slots -> foldr replaceIn toChange $ zip slots args
             proofDefBody' = replacer proofDefBody proofSlots
-            args' = termsToNames args
+            args' = map show args
             steps' = map (\(Step (PropT slots body) stratInst i) -> Step (PropT args' $ replacer body slots) (updateStrat stratInst) (i + offset)) steps
             updateStrat :: Strategy -> Strategy
             updateStrat (Strategy sk is) = Strategy sk $ map (+ offset) is

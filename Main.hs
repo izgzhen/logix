@@ -1,7 +1,7 @@
 -- Main Function
-import Logix.PropDefs
-import Logix.PropEval
-import Logix.PropContext
+import Logix.Definition
+import Logix.Eval
+import Logix.Context
 import Logix.Unwrap
 import System.Console.Haskeline
 import Control.Monad.State

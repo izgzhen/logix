@@ -1,6 +1,6 @@
-module Logix.PropTransform where
-import Logix.PropDefs
-import Logix.PropParser
+module Logix.Transform where
+import Logix.Definition
+import Logix.Parser
 import Logix.Tokenizer
 import Logix.Utils
 import Data.Char
@@ -33,13 +33,11 @@ extractArgs (Not f) = unique $ extractArgs f
 formulaToProp :: Formula -> PropT
 formulaToProp f = PropT (extractArgs f) f
 
-termsToNames :: [Formula] -> [String]
-termsToNames [] = []
-termsToNames (Term s : ts) = s : termsToNames ts
-termsToNames _ = error "termsToNames error"
-
+-- Get the core proposition from a intricate step
 unStep :: Step -> Formula
 unStep (Step (PropT _ body) _ _) = body
+
+-- The fellowing two are purely for testing usage
 
 strToProp :: String -> PropT
 strToProp str = formulaToProp . strToFormula $ str
