@@ -8,21 +8,6 @@
     - etc.
 -}
 
-{-
-    TODOs:
-
-    3. Encode the indexing information correctly
-
-        * Index is the numbering of each step in a proof
-        * It could appear as the attribute of the step itself, or as the
-          target list of a `Strategy`
-
-       So, the core problem is how to maintain the indexing information explicitly
-       or implicitly; For implicit ordering, you needs to count or resursively carrying
-       the information during transformation of proofs, but too explicitly will also
-       bring more troubles to the transformation itself. Till now, I as still using implicit
-       method, but it turns out to be difficult to use at some times.
--}
 
 module Logix.Unwrap where
 import Logix.PropDefs
@@ -34,11 +19,11 @@ import Logix.Utils
 import qualified Data.Map as M
 
 --------------- / UNWRAPPING BASED ON DEDUCTION / ---------------
+
 type Trace = (Formula, Int) -- The traced expression and its index
 type ScanningState = ([Step], [Step], Trace, Formula, Int) -- Orignal Steps, New Steps, Tracer Pair, Assumption, Step Counter
+type Index = Int
 emptyScanningState = ([], [], (Empty, 0), Empty, 0)
-
-undefinedIndex = 0
 
 -- With initial implied
 unwrapDeduction :: [Step] -> Formula -> [Step]
@@ -113,18 +98,18 @@ unwrapSteps :: M.Map StrategyKind Proof -> [Step] -> [Step]
 unwrapSteps proofs steps = fst $ foldr transform ([], 0) steps
     where
         transform :: Step -> ([Step], Int) -> ([Step], Int)
-        transform step (ss, i) = (s' ++ ss, i')
+        transform step (ss, i) = (s' ++ ss, i + length s' - 1)
             where
-                i' = i + length s' - 1
-                Proof _ s' = unwrapStep step i'
+                Proof _ s' = unwrapStep step
 
-        unwrapStep :: Step -> Int -> Proof
-        unwrapStep step@(Step prop@(PropT args stepbody) (Strategy sk _) undefinedIndex) index = case M.lookup sk proofs of
-            Just proof -> unwrapArgs proof (map Term args) index
-            Nothing -> Proof prop [step]
+        unwrapStep :: Step -> Proof
+        unwrapStep step@(Step prop@(PropT args stepbody) (Strategy sk _) si) =
+            case M.lookup sk proofs of
+                Just proof -> unwrapArgs proof si (map Term args)
+                Nothing -> Proof prop [step]
 
-unwrapArgs :: Proof -> [Formula] -> Int -> Proof
-unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) args offset =
+unwrapArgs :: Proof -> Index -> [Formula] -> Proof
+unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) offset args =
     case ifSameLength args proofSlots of
         Right _ -> Proof (PropT args' proofDefBody') steps'
         Left _ -> error "Wrong Unwrapping"
@@ -132,6 +117,6 @@ unwrapArgs proofDef@(Proof (PropT proofSlots proofDefBody) steps) args offset =
             replacer = \toChange slots -> foldr replaceIn toChange $ zip slots args
             proofDefBody' = replacer proofDefBody proofSlots
             args' = termsToNames args
-            steps' = map (\(Step (PropT slots body) stratInst undefinedIndex) -> Step (PropT args' $ replacer body slots) (updateStrat stratInst) undefinedIndex) steps
+            steps' = map (\(Step (PropT slots body) stratInst i) -> Step (PropT args' $ replacer body slots) (updateStrat stratInst) (i + offset)) steps
             updateStrat :: Strategy -> Strategy
             updateStrat (Strategy sk is) = Strategy sk $ map (+ offset) is

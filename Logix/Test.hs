@@ -5,7 +5,7 @@ import Logix.Sim
 import Logix.Unwrap
 import qualified Data.Map as M
 
---------- / AUTOMATIC PROVING / -----------
+--------- / TEST AUTOMATIC PROVING / -----------
 
 idRuleProof :: [String]
 idRuleProof = [
@@ -22,7 +22,7 @@ idRuleGoal = Just ("id_rule", strToProp "p -> p", 0)
 testId :: IO ()
 testId = prove idRuleProof idRuleGoal
 
---------- / UNWRAP PROCESS PROVING / -------
+--------- / TEST UNWRAP DEDUCTION / -------
 
 {-
   Currently, the chronological order is strictly limited
@@ -43,10 +43,10 @@ unwrapStepsExample =  constructSnippet [
 unwrapAssumpExample :: Formula
 unwrapAssumpExample = Term "p"
 
-unwrapTest = mapM_ print $ unwrapDeduction unwrapStepsExample unwrapAssumpExample
+testUnwrapDeduction :: IO ()
+testUnwrapDeduction = mapM_ print $ unwrapDeduction unwrapStepsExample unwrapAssumpExample
 
------------ / UNWRAP BASED ON PROOF EXAMPLE / -------------
-
+----------- / TEST UNWRAP BASED ON PROOF / -------------
 
 unwrapProofBasedProofs = M.fromList [
     (Id_rule, Proof (strToProp "p -> p") $ constructSnippet [
@@ -58,4 +58,7 @@ unwrapProofBasedProofs = M.fromList [
     ])
   ]
 
-unwrapProofBasedSteps = [(strToProp "p -> p", Strategy Id_rule [])]
+unwrapProofBasedSteps = [Step (strToProp "p -> p") (Strategy Id_rule []) 0]
+
+testUnwrapProofBased :: IO ()
+testUnwrapProofBased = mapM_ print $ unwrapSteps unwrapProofBasedProofs unwrapProofBasedSteps 
