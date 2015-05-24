@@ -51,11 +51,11 @@ parseFormulas tks = do
 parseFormula :: [Token] -> EitherS (Formula, [Token])
 parseFormula (TkSyn Neg : TkIdent ident : TkSyn Curry : tks) = do
 	(right, tks') <- parseFormula tks
-	return (Imply (Not (Term ident)) right, tks')
+	return ((Not (Term ident)) --> right, tks')
 
 parseFormula (TkIdent ident : TkSyn Curry : tks) = do
 	(right, tks') <- parseFormula tks
-	return (Imply (Term ident) right, tks')
+	return ((Term ident) --> right, tks')
 
 parseFormula (TkIdent ident : tks) = return (Term ident, tks)
 parseFormula (TkSyn Neg : TkIdent ident : tks) = return (Not $ Term ident, tks)
@@ -69,5 +69,5 @@ parseFormula' tks f = do
 	(formula, (TkSyn RP : rest)) <- parseFormula tks
 	if length rest > 0 && head rest == TkSyn Curry then do
 		(formula'', tks'') <- parseFormula $ tail rest
-		return (Imply (f formula) formula'', tks'')
+		return ((f formula) --> formula'', tks'')
 		else return (f formula, rest)

@@ -8,6 +8,8 @@ data Formula = Imply Formula Formula
              | Not Formula
              | Empty deriving (Eq)
 
+(-->) = Imply
+
 type FormalArguments = [String]
 data PropT = PropT FormalArguments Formula deriving (Show, Eq) -- arguments and body
 

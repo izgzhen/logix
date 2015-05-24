@@ -43,9 +43,9 @@ unwrapDeduction' (thisStep : oSteps, nSteps, (traced, tIndex), assumption, newIn
                                     , Step (formulaToProp f3) s3 (newIndex + 2)]
                                , (traced', tIndex'), newIndex + 3)
                 where
-                    f1 = Imply assumption (Imply a b)
-                    f2 = Imply (Imply assumption a) (Imply assumption b)
-                    f3 = Imply assumption b
+                    f1 = assumption --> (a --> b)
+                    f2 = (assumption --> a) --> (assumption --> b)
+                    f3 = assumption --> b
                     s1 = Strategy HarmlessPre []
                     s2 = Strategy L2MP [newIndex]
                     s3 = Strategy MpRule [tIndex, newIndex + 1]
@@ -66,12 +66,12 @@ changeConclusion :: ([Step], (Formula, Index)) -> Formula -> Trace -> ([Step], (
 changeConclusion ([], x) _ _ = ([], x)
 changeConclusion original@((Step (PropT _ f) strat oi : ss), x) assumption (traced, _) =
     if f == traced then
-        ((Step (formulaToProp $ Imply assumption traced) strat oi) : ss, x)
+        ((Step (formulaToProp $ assumption --> traced) strat oi) : ss, x)
         else original
 
 -- Check if current step use the lasted traced formula as the condition of implication
 checkUsed   :: Step -> Trace -> Maybe (Formula, Formula, Index)
-checkUsed (Step (PropT args stepbody) (Strategy sk is) i) (traced, _) =    case stepbody of
+checkUsed (Step (PropT args stepbody) (Strategy sk is) i) (traced, _) = case stepbody of
     Imply a b -> if a == traced then Just (a, b, i) else Nothing
     _ -> Nothing
 

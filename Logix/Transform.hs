@@ -16,7 +16,7 @@ import Control.Monad.State
 replaceIn :: (String, Formula) -> Formula -> Formula
 replaceIn (slot, content) body = checkFormula body
     where
-        checkFormula (Imply f1 f2) = (Imply (r' f1) (r' f2))
+        checkFormula (Imply f1 f2) = ((r' f1) --> (r' f2))
         checkFormula formula@(Term str) = if slot == str then content else formula
         checkFormula Empty = Empty
         checkFormula (Not f) = Not $ r' f

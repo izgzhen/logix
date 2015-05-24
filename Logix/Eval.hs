@@ -42,7 +42,7 @@ expandFormula f@(Term ident) = do
         Nothing -> f
         Just (PropT _ body) -> body
 expandFormula (Not f') = liftM Not (expandFormula f')
-expandFormula (Imply f1 f2) = liftM2 Imply (expandFormula f1) (expandFormula f2)
+expandFormula (Imply f1 f2) = liftM2 (-->) (expandFormula f1) (expandFormula f2)
 
 -- Extract the body of named proposition from context by a token, handling all exceptions
 extractNamedFormula :: Int -> Evaluator (EitherS Formula)
